@@ -1,0 +1,217 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Overworked.App.App"
+             Name="Overworked"
+             RequestedThemeVariant="Default">
+
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="Ink" Color="#15171C" />
+          <SolidColorBrush x:Key="Raised" Color="#1C1F26" />
+          <SolidColorBrush x:Key="Hover" Color="#0EFFFFFF" />
+          <SolidColorBrush x:Key="Selected" Color="#1FFFFFFF" />
+          <SolidColorBrush x:Key="Text" Color="#E8EAEE" />
+          <SolidColorBrush x:Key="Subtle" Color="#BCC1CA" />
+          <SolidColorBrush x:Key="Muted" Color="#878E9C" />
+          <SolidColorBrush x:Key="Hairline" Color="#262A32" />
+          <SolidColorBrush x:Key="Dirty" Color="#E3B341" />
+          <SolidColorBrush x:Key="PullRequest" Color="#D04A53" />
+          <SolidColorBrush x:Key="Danger" Color="#E5737A" />
+          <SolidColorBrush x:Key="DangerFill" Color="#C6434C" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="Ink" Color="#F4F5F7" />
+          <SolidColorBrush x:Key="Raised" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="Hover" Color="#0B0F172A" />
+          <SolidColorBrush x:Key="Selected" Color="#170F172A" />
+          <SolidColorBrush x:Key="Text" Color="#1A1D24" />
+          <SolidColorBrush x:Key="Subtle" Color="#3F4552" />
+          <SolidColorBrush x:Key="Muted" Color="#687080" />
+          <SolidColorBrush x:Key="Hairline" Color="#E1E4E9" />
+          <SolidColorBrush x:Key="Dirty" Color="#A86F0C" />
+          <SolidColorBrush x:Key="PullRequest" Color="#C2424B" />
+          <SolidColorBrush x:Key="Danger" Color="#C2424B" />
+          <SolidColorBrush x:Key="DangerFill" Color="#C2424B" />
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+
+      <FontFamily x:Key="Mono">avares://Overworked/Assets/Fonts#DM Mono</FontFamily>
+      <FontFamily x:Key="Sans">Segoe UI Variable Text, Segoe UI, $Default</FontFamily>
+    </ResourceDictionary>
+  </Application.Resources>
+
+  <Application.Styles>
+    <FluentTheme />
+
+    <!-- the window draws its own wordmark; drop the drawn title text and the fullscreen button -->
+    <Style Selector="Button#PART_FullScreenButton, Button#PART_MinimizeButton:disabled, Button#PART_MaximizeButton:disabled">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="Panel#PART_TitleTextPanel TextBlock">
+      <Setter Property="Opacity" Value="0" />
+    </Style>
+
+    <Style Selector=":is(Window)">
+      <Setter Property="Background" Value="{DynamicResource Ink}" />
+      <Setter Property="Foreground" Value="{DynamicResource Text}" />
+      <Setter Property="FontFamily" Value="{StaticResource Sans}" />
+    </Style>
+
+    <Style Selector="TextBlock.mono">
+      <Setter Property="FontFamily" Value="{StaticResource Mono}" />
+      <Setter Property="FontSize" Value="11.5" />
+      <Setter Property="Foreground" Value="{DynamicResource Muted}" />
+    </Style>
+    <Style Selector="TextBlock.muted">
+      <Setter Property="Foreground" Value="{DynamicResource Muted}" />
+    </Style>
+    <Style Selector="TextBlock.dirty">
+      <Setter Property="Foreground" Value="{DynamicResource Dirty}" />
+    </Style>
+    <Style Selector="TextBlock.danger">
+      <Setter Property="Foreground" Value="{DynamicResource Danger}" />
+    </Style>
+
+    <!-- quiet icon buttons -->
+    <Style Selector="Button.icon">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="7" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Foreground" Value="{DynamicResource Muted}" />
+    </Style>
+    <Style Selector="Button.icon:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Hover}" />
+      <Setter Property="Foreground" Value="{DynamicResource Text}" />
+    </Style>
+    <Style Selector="Button.icon Path">
+      <Setter Property="Stroke" Value="{Binding $parent[Button].Foreground}" />
+      <Setter Property="StrokeThickness" Value="1.5" />
+      <Setter Property="StrokeLineCap" Value="Round" />
+      <Setter Property="StrokeJoin" Value="Round" />
+    </Style>
+
+    <!-- the pills on a row whose branch is tagged: its ticket ("PROJ-123"), then its pull request ("PR #n");
+         clicking one opens its link -->
+    <Style Selector="Button.tag">
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="FontFamily" Value="{StaticResource Mono}" />
+      <Setter Property="FontSize" Value="11.5" />
+      <Setter Property="FontWeight" Value="Medium" />
+      <Setter Property="Padding" Value="10,3" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="CornerRadius" Value="11" />
+    </Style>
+    <Style Selector="Button.tag:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.tag:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{Binding $parent[Button].Background}" />
+      <Setter Property="Foreground" Value="{Binding $parent[Button].Foreground}" />
+      <Setter Property="Opacity" Value="0.85" />
+    </Style>
+    <Style Selector="Button.pr">
+      <Setter Property="Background" Value="{DynamicResource PullRequest}" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <!-- its background is the ticket's own colour, set by the row -->
+    <Style Selector="Button.ticket">
+      <Setter Property="Foreground" Value="#15171C" />
+    </Style>
+
+    <!-- RepoMenu: the repo right-click menu with its branch search -->
+    <Style Selector="FlyoutPresenter.picker">
+      <Setter Property="Background" Value="{DynamicResource Raised}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Hairline}" />
+      <Setter Property="CornerRadius" Value="9" />
+      <Setter Property="Padding" Value="6" />
+      <Setter Property="MinWidth" Value="0" />
+    </Style>
+    <Style Selector="TextBox.search">
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Padding" Value="9,6" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Margin" Value="2,0" />
+    </Style>
+    <Style Selector="TextBox.search /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="{DynamicResource Ink}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Hairline}" />
+    </Style>
+    <Style Selector="TextBox.search:pointerover /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="{DynamicResource Ink}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Muted}" />
+    </Style>
+    <Style Selector="TextBox.search:focus /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="{DynamicResource Ink}" />
+      <Setter Property="BorderBrush" Value="#F5C23E" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="ListBox.branches">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="ListBox.branches ListBoxItem">
+      <Setter Property="Padding" Value="8,5" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="CornerRadius" Value="5" />
+      <Setter Property="Margin" Value="0,0,4,0" />
+    </Style>
+    <Style Selector="ListBox.branches ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Hover}" />
+    </Style>
+    <Style Selector="ListBox.branches ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter, ListBox.branches ListBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Selected}" />
+    </Style>
+    <Style Selector="TextBlock.branchname">
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Foreground" Value="{DynamicResource Text}" />
+    </Style>
+    <Style Selector="TextBlock.branchtag">
+      <Setter Property="FontSize" Value="11.5" />
+      <Setter Property="Foreground" Value="{DynamicResource Muted}" />
+    </Style>
+    <Style Selector="Border.menudivider">
+      <Setter Property="Height" Value="1" />
+      <Setter Property="Margin" Value="-6,6,-6,4" />
+      <Setter Property="Background" Value="{DynamicResource Hairline}" />
+    </Style>
+
+    <!-- plain rows inside RepoMenu, like context-menu items -->
+    <Style Selector="Button.menuitem">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+      <Setter Property="Padding" Value="8,6" />
+      <Setter Property="CornerRadius" Value="5" />
+      <Setter Property="FontSize" Value="13" />
+    </Style>
+    <Style Selector="Button.menuitem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Hover}" />
+    </Style>
+
+    <!-- primary action in the mascot's yellow -->
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="#F5C23E" />
+      <Setter Property="Foreground" Value="#1A1D24" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#FFD35C" />
+      <Setter Property="Foreground" Value="#1A1D24" />
+    </Style>
+    <Style Selector="Button.primary:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#E0AE2C" />
+      <Setter Property="Foreground" Value="#1A1D24" />
+    </Style>
+
+    <Style Selector="Button.danger">
+      <Setter Property="Background" Value="{DynamicResource DangerFill}" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Button.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource DangerFill}" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="Opacity" Value="0.9" />
+    </Style>
+  </Application.Styles>
+</Application>

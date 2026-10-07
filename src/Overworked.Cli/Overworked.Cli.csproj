@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>ow</AssemblyName>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>ow</ToolCommandName>
+    <PackageId>Overworked.Cli</PackageId>
+    <Version>0.5.0</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Overworked.Core\Overworked.Core.csproj" />
+  </ItemGroup>
+
+</Project>
