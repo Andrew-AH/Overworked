@@ -96,6 +96,7 @@
     <!-- the pills on a row whose branch is tagged: its ticket ("PROJ-123"), then its pull request ("PR #n");
          clicking one opens its link -->
     <Style Selector="Button.tag">
+      <Setter Property="Cursor" Value="Hand" />
       <Setter Property="BorderThickness" Value="0" />
       <Setter Property="FontFamily" Value="{StaticResource Mono}" />
       <Setter Property="FontSize" Value="11.5" />
