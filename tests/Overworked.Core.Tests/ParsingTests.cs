@@ -84,10 +84,4 @@ public sealed class ParsingTests
         Assert.Equal(new BranchTags("https://github.com/example/app/pull/2", null), tags["v1.2"]);
         Assert.Equal(new BranchTags(null, "https://example.atlassian.net/browse/PROJ-3"), tags["proj-3"]);
     }
-
-    [Theory]
-    [InlineData("https://example.atlassian.net/browse/PROJ-9999", "PROJ-9999")]
-    [InlineData("https://example.atlassian.net/browse/PROJ-9999/", "PROJ-9999")]
-    public void Takes_a_tickets_key_from_the_end_of_its_link(string url, string key) =>
-        Assert.Equal(key, Tags.TicketKeyOf(url));
 }

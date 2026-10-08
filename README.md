@@ -25,6 +25,8 @@ and new branches start from `origin/main`.
   paste the link), or with `ow ticket` / `ow pr`. A branch can have both. Opening the menu item again shows the link,
   to change it.
 - A row whose branch has a pull request shows a **PR #n** pill; click it to open the PR.
+- A ticket link can come from any company's Jira (or any tracker with keys like PROJ-123): the ticket's page
+  (`…/browse/PROJ-123`), or a board or backlog with it open (`…?selectedIssue=PROJ-123`).
 - A row whose branch has a ticket shows its key, e.g. **PROJ-123**,
   in that ticket's colour. Every ticket in view gets its own colour, shared by every repo working on it, so one ticket's
   worktrees read as a group. Click it to open the ticket.

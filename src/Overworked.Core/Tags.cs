@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using System.Web;
 
 namespace Overworked.Core;
 
@@ -25,14 +26,22 @@ public static class Tags
         var isLink = Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps;
         if (kind == TagKind.PullRequest && !isLink)
             return $"Not a pull request link: {url}";
-        if (kind == TagKind.Ticket && !(isLink && IsTicketKey(LastSegment(uri!))))
-            return $"Not a ticket link: {url}. It should end in the ticket's key, like https://.../browse/PROJ-123.";
+        if (kind == TagKind.Ticket && !(isLink && TicketKeyOf(url) is not null))
+            return $"Not a ticket link: {url}. It should name the ticket, like https://.../browse/PROJ-123 or a board link with ?selectedIssue=PROJ-123.";
         return null;
     }
 
-    /// <summary>A ticket's key, from the end of its link: https://…/browse/PROJ-123 is PROJ-123.</summary>
-    public static string TicketKeyOf(string url) =>
-        Uri.TryCreate(url, UriKind.Absolute, out var uri) ? LastSegment(uri) : url;
+    /// <summary>
+    /// The ticket a link names, from any tracker that uses keys like PROJ-123: a board or backlog with it open
+    /// (…/boards/178?selectedIssue=PROJ-123), or else the last part of the path that's a key (…/browse/PROJ-123,
+    /// …/issues/PROJ-123, …/issue/PROJ-123/its-title). Null when the link names none.
+    /// </summary>
+    public static string? TicketKeyOf(string url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return null;
+        if (HttpUtility.ParseQueryString(uri.Query)["selectedIssue"] is { } selected && IsTicketKey(selected)) return selected;
+        return uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries).LastOrDefault(IsTicketKey);
+    }
 
     /// <summary>Each tagged branch's links, by branch name.</summary>
     internal static IReadOnlyDictionary<string, BranchTags> ByBranch(string repoPath)
@@ -65,9 +74,7 @@ public static class Tags
 
     static string Setting(TagKind kind) => kind == TagKind.PullRequest ? "overworked-pr" : "overworked-ticket";
 
-    static string LastSegment(Uri uri) => uri.AbsolutePath.TrimEnd('/').Split('/')[^1];
-
-    // A Jira-style key: project letters, a dash, the number.
+    // A Jira-style key: the project's letters (and digits), a dash, the number.
     static bool IsTicketKey(string text) => Regex.IsMatch(text, "^[A-Za-z][A-Za-z0-9_]*-[0-9]+$");
 }
 

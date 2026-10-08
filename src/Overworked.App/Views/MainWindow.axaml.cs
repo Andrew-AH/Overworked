@@ -135,7 +135,7 @@ public partial class MainWindow : Window
             heading: ticket ? "Tag ticket" : "Tag pull request",
             subject: branch,
             message: ticket
-                ? "Paste the ticket's link, like https://…/browse/PROJ-123. Every row with the same ticket shares its colour."
+                ? "Paste the ticket's link: its own page, or a board with it open. Every row with the same ticket shares its colour."
                 : "Paste the pull request's link.",
             text: (ticket ? row.TicketUrl : row.PullRequestUrl) ?? "",
             placeholder: "https://…",

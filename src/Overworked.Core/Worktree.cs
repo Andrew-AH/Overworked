@@ -13,6 +13,9 @@ public sealed record Worktree(
 {
     public string FolderName => System.IO.Path.GetFileName(Path);
 
-    /// <summary>Its ticket's key, e.g. PROJ-123; null when it has no ticket.</summary>
-    public string? TicketKey => TicketUrl is null ? null : Tags.TicketKeyOf(TicketUrl);
+    /// <summary>
+    /// Its ticket's key, e.g. PROJ-123; null when it has no ticket. "Ticket" for a link that names none, which only a
+    /// hand-edited git config can hold.
+    /// </summary>
+    public string? TicketKey => TicketUrl is null ? null : Tags.TicketKeyOf(TicketUrl) ?? "Ticket";
 }
