@@ -6,6 +6,7 @@ using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 using Overworked.App.ViewModels;
+using Overworked.Core;
 
 namespace Overworked.App.Views;
 
@@ -56,7 +57,14 @@ public partial class MainWindow : Window
             ("Open in VS Code", () => Open(Platform.OpenInCode, row)),
             ("Open folder", () => Open(Platform.OpenFolder, row)),
             ("Open terminal", () => Open(Platform.OpenTerminal, row)),
-            .. row.HasBranch ? new[] { ("Copy branch name", (Action)(() => CopyBranch(row))) } : [],
+            .. row.HasBranch
+                ? new[]
+                {
+                    ("Copy branch name", (Action)(() => CopyBranch(row))),
+                    ("Tag ticket…", () => TagBranch(row, TagKind.Ticket)),
+                    ("Tag pull request…", () => TagBranch(row, TagKind.PullRequest)),
+                }
+                : [],
         ],
         async choice => await _viewModel.SwitchBranchAsync(row, choice));
     }
@@ -113,6 +121,27 @@ public partial class MainWindow : Window
     void CopyBranch_Click(object? sender, RoutedEventArgs e)
     {
         if (RowOf<RowViewModel>(sender) is { } row) CopyBranch(row);
+    }
+
+    void TagTicket_Click(object? sender, RoutedEventArgs e) => TagBranch(RowOf<RowViewModel>(sender), TagKind.Ticket);
+    void TagPullRequest_Click(object? sender, RoutedEventArgs e) => TagBranch(RowOf<RowViewModel>(sender), TagKind.PullRequest);
+
+    /// <summary>Asks for the link to tag the row's branch with, showing the one it has now, if any.</summary>
+    async void TagBranch(RowViewModel? row, TagKind kind)
+    {
+        if (row?.Branch is not { } branch) return;
+        var ticket = kind == TagKind.Ticket;
+        var link = await Dialog.Prompt(this,
+            heading: ticket ? "Tag ticket" : "Tag pull request",
+            subject: branch,
+            message: ticket
+                ? "Paste the ticket's link, like https://…/browse/PROJ-123. Every row with the same ticket shares its colour."
+                : "Paste the pull request's link.",
+            text: (ticket ? row.TicketUrl : row.PullRequestUrl) ?? "",
+            placeholder: "https://…",
+            action: "Tag",
+            validate: answer => answer.Length == 0 ? "Paste a link first." : Tags.ProblemWith(kind, answer));
+        if (link is not null) await _viewModel.TagAsync(row, kind, link);
     }
 
     async void CopyBranch(RowViewModel row)

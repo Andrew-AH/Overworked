@@ -12,15 +12,22 @@ public enum TagKind { PullRequest, Ticket }
 public static class Tags
 {
     /// <summary>Tags <paramref name="branch"/> with a link, replacing any it had of that kind.</summary>
-    /// <exception cref="OverworkedException">It isn't an https link, or a ticket link doesn't end in the ticket's key.</exception>
+    /// <exception cref="OverworkedException">The link won't do (<see cref="ProblemWith"/>).</exception>
     public static void Set(string repoPath, string branch, TagKind kind, string url)
+    {
+        if (ProblemWith(kind, url) is { } problem) throw new OverworkedException(problem);
+        Git.Run(repoPath, "config", "--local", $"branch.{branch}.{Setting(kind)}", url);
+    }
+
+    /// <summary>Why <paramref name="url"/> can't be this kind of tag, or null when it can.</summary>
+    public static string? ProblemWith(TagKind kind, string url)
     {
         var isLink = Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps;
         if (kind == TagKind.PullRequest && !isLink)
-            throw new OverworkedException($"Not a pull request link: {url}");
+            return $"Not a pull request link: {url}";
         if (kind == TagKind.Ticket && !(isLink && IsTicketKey(LastSegment(uri!))))
-            throw new OverworkedException($"Not a ticket link: {url}. It should end in the ticket's key, like https://.../browse/PROJ-123.");
-        Git.Run(repoPath, "config", "--local", $"branch.{branch}.{Setting(kind)}", url);
+            return $"Not a ticket link: {url}. It should end in the ticket's key, like https://.../browse/PROJ-123.";
+        return null;
     }
 
     /// <summary>A ticket's key, from the end of its link: https://…/browse/PROJ-123 is PROJ-123.</summary>

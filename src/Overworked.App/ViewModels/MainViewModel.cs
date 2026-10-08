@@ -105,6 +105,18 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         });
     }
 
+    /// <summary>Tags the row's branch with its ticket or pull request. Rows tagged with the same ticket share its colour.</summary>
+    public Task TagAsync(RowViewModel row, TagKind kind, string url)
+    {
+        if (row.Branch is not { } branch) return Task.CompletedTask;
+        var tag = kind == TagKind.Ticket ? Tags.TicketKeyOf(url) : "its pull request";
+        return ChangeRepoAsync(row.Repo, $"Tagging {branch}…", _ =>
+        {
+            Tags.Set(row.Repo.Path, branch, kind, url);
+            return $"Tagged {branch} with {tag}";
+        });
+    }
+
     public void ToggleExpanded(RepoRow row)
     {
         row.IsExpanded = !row.IsExpanded;

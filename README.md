@@ -7,7 +7,7 @@ main repo; its worktrees show underneath it. New worktrees go in `<root>/.worktr
 and new branches start from `origin/main`.
 
 - **Double-click** a row to open it in VS Code.
-- **Right-click** for: open in VS Code / folder / terminal, new worktree, remove worktree.
+- **Right-click** for: open in VS Code / folder / terminal, new worktree, tag ticket / pull request, remove worktree.
 - The chevron on a repo collapses or expands its worktrees.
 - **+ (or New worktree…)** opens the same branch search: pick any branch, local or on origin, to open it as a
   worktree, or type a new name to create one from origin/main. Worktree rows show just their branch.
@@ -21,8 +21,11 @@ and new branches start from `origin/main`.
   commits without confirmation. (A linked worktree's submodule data is deleted with the worktree.)
   If VS Code or a terminal still has the folder open, the work is removed and the empty folder is
   deleted on a later refresh, once it's let go.
-- A row whose branch has a pull request (tagged with `ow pr`) shows a **PR #n** pill; click it to open the PR.
-- A row whose branch has a ticket (tagged with `ow ticket`) shows its key, e.g. **PROJ-123**,
+- Tag a row's branch with its ticket or pull request from its right-click menu (**Tag ticket…**, **Tag pull request…**:
+  paste the link), or with `ow ticket` / `ow pr`. A branch can have both. Opening the menu item again shows the link,
+  to change it.
+- A row whose branch has a pull request shows a **PR #n** pill; click it to open the PR.
+- A row whose branch has a ticket shows its key, e.g. **PROJ-123**,
   in that ticket's colour. Every ticket in view gets its own colour, shared by every repo working on it, so one ticket's
   worktrees read as a group. Click it to open the ticket.
 - The tree updates on its own when worktrees change, including ones made from the CLI.

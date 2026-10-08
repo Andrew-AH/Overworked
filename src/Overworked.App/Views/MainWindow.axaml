@@ -136,6 +136,8 @@
                             <MenuItem Header="Open folder" Click="OpenFolder_Click" />
                             <MenuItem Header="Open terminal" Click="OpenTerminal_Click" />
                             <MenuItem Header="Copy branch name" Click="CopyBranch_Click" IsVisible="{Binding HasBranch}" />
+                            <MenuItem Header="Tag ticket…" Click="TagTicket_Click" IsVisible="{Binding HasBranch}" />
+                            <MenuItem Header="Tag pull request…" Click="TagPullRequest_Click" IsVisible="{Binding HasBranch}" />
                             <Separator />
                             <MenuItem Header="Remove worktree…" Click="RemoveWorktree_Click" />
                           </ContextMenu>

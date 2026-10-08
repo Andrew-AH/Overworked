@@ -126,22 +126,23 @@
       <Setter Property="Padding" Value="6" />
       <Setter Property="MinWidth" Value="0" />
     </Style>
-    <Style Selector="TextBox.search">
+    <!-- text boxes: the branch search, and fields in dialogs -->
+    <Style Selector="TextBox.search, TextBox.field">
       <Setter Property="FontSize" Value="13" />
       <Setter Property="MinHeight" Value="0" />
       <Setter Property="Padding" Value="9,6" />
       <Setter Property="CornerRadius" Value="6" />
       <Setter Property="Margin" Value="2,0" />
     </Style>
-    <Style Selector="TextBox.search /template/ Border#PART_BorderElement">
+    <Style Selector="TextBox.search /template/ Border#PART_BorderElement, TextBox.field /template/ Border#PART_BorderElement">
       <Setter Property="Background" Value="{DynamicResource Ink}" />
       <Setter Property="BorderBrush" Value="{DynamicResource Hairline}" />
     </Style>
-    <Style Selector="TextBox.search:pointerover /template/ Border#PART_BorderElement">
+    <Style Selector="TextBox.search:pointerover /template/ Border#PART_BorderElement, TextBox.field:pointerover /template/ Border#PART_BorderElement">
       <Setter Property="Background" Value="{DynamicResource Ink}" />
       <Setter Property="BorderBrush" Value="{DynamicResource Muted}" />
     </Style>
-    <Style Selector="TextBox.search:focus /template/ Border#PART_BorderElement">
+    <Style Selector="TextBox.search:focus /template/ Border#PART_BorderElement, TextBox.field:focus /template/ Border#PART_BorderElement">
       <Setter Property="Background" Value="{DynamicResource Ink}" />
       <Setter Property="BorderBrush" Value="#F5C23E" />
       <Setter Property="BorderThickness" Value="1" />
