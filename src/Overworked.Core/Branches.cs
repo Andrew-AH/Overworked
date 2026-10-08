@@ -9,8 +9,41 @@ public static class Branches
     const string LocalPrefix = "refs/heads/";
     const string OriginPrefix = "refs/remotes/origin/";
 
-    /// <summary>Fetches origin, dropping branches deleted there.</summary>
-    public static void Fetch(string repoPath) => Git.Run(repoPath, "fetch", "origin", "--prune");
+    // git config: the last commit origin had of a branch, noted as its copy there was deleted.
+    const string LastPushedSetting = "overworked-last-pushed";
+
+    /// <summary>
+    /// Fetches origin, dropping branches deleted there. A local branch whose copy on origin was just deleted (as when
+    /// its pull request is merged) first gets a note of the last commit origin had, so <see cref="WasFullyPushed"/>
+    /// can tell afterwards whether everything on it got there.
+    /// </summary>
+    public static void Fetch(string repoPath)
+    {
+        var upstreams = Upstreams(repoPath);
+        var before = OriginTips(repoPath);
+        Git.Run(repoPath, "fetch", "origin", "--prune");
+        var after = OriginTips(repoPath);
+        foreach (var (branch, upstream) in upstreams)
+            if (before.TryGetValue(upstream, out var lastTip) && !after.ContainsKey(upstream))
+                Git.Run(repoPath, "config", "--local", $"branch.{branch}.{LastPushedSetting}", lastTip);
+    }
+
+    /// <summary>Local branches whose copy on origin was deleted. git reports them "[gone]" once a fetch has pruned it.</summary>
+    internal static IReadOnlySet<string> Gone(string repoPath) =>
+        ParseGone(Git.Run(repoPath, "for-each-ref", "--format=%(refname:short)%09%(upstream:track)", "refs/heads"));
+
+    /// <summary>Whether origin had every commit on <paramref name="branch"/> when its copy there was deleted.</summary>
+    /// <returns>False when there's anything newer, or no note to tell by (it was deleted before Overworked fetched).</returns>
+    internal static bool WasFullyPushed(string repoPath, string branch)
+    {
+        string lastTip;
+        try { lastTip = Git.Run(repoPath, "config", "--local", "--get", $"branch.{branch}.{LastPushedSetting}").Trim(); }
+        catch (OverworkedException) { return false; }
+        return Git.Succeeds(repoPath, "merge-base", "--is-ancestor", LocalPrefix + branch, lastTip);
+    }
+
+    /// <summary>Deletes a local branch, its config (tags, notes) with it.</summary>
+    internal static void Delete(string repoPath, string branch) => Git.Run(repoPath, "branch", "-D", branch);
 
     /// <summary>Local branches, then origin branches with no local copy, each newest first.</summary>
     public static IReadOnlyList<BranchRef> List(string repoPath) =>
@@ -56,6 +89,27 @@ public static class Branches
 
         return [.. local, .. originOnly];
     }
+
+    /// <summary>`for-each-ref` lines of a branch and its upstream's state, tab-separated; "[gone]" when deleted on origin.</summary>
+    internal static IReadOnlySet<string> ParseGone(string forEachRef) =>
+        Git.Lines(forEachRef)
+            .Select(line => line.Split('\t'))
+            .Where(fields => fields.Length > 1 && fields[1] == "[gone]")
+            .Select(fields => fields[0])
+            .ToHashSet();
+
+    /// <summary>Each local branch's upstream ref, for those that have one.</summary>
+    static Dictionary<string, string> Upstreams(string repoPath) =>
+        Git.Lines(Git.Run(repoPath, "for-each-ref", "--format=%(refname:short)%09%(upstream)", "refs/heads"))
+            .Select(line => line.Split('\t'))
+            .Where(fields => fields.Length > 1 && fields[1].Length > 0)
+            .ToDictionary(fields => fields[0], fields => fields[1]);
+
+    /// <summary>The commit each of origin's branches is on, by ref.</summary>
+    static Dictionary<string, string> OriginTips(string repoPath) =>
+        Git.Lines(Git.Run(repoPath, "for-each-ref", "--format=%(refname)%09%(objectname)", "refs/remotes/origin"))
+            .Select(line => line.Split('\t'))
+            .ToDictionary(fields => fields[0], fields => fields[1]);
 
     static (string Ref, string? CheckedOutAt, DateTimeOffset LastCommit) ParseLine(string line)
     {

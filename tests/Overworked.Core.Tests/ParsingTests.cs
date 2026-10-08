@@ -43,6 +43,14 @@ public sealed class ParsingTests
     }
 
     [Fact]
+    public void Finds_branches_whose_copy_on_origin_is_gone()
+    {
+        var gone = Branches.ParseGone("main\t\nfeature-a\t[gone]\nfeature-b\t[ahead 1]\nfeature/c\t[gone]\nlocal-only\t\n");
+
+        Assert.Equal(new[] { "feature-a", "feature/c" }, gone.Order());
+    }
+
+    [Fact]
     public void Finds_submodules_in_the_index_but_not_conflicted_ones()
     {
         var links = Submodules.ParseGitlinks(

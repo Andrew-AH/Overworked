@@ -7,9 +7,10 @@ namespace Overworked.Core;
 /// <param name="ChangedFiles">Uncommitted changes. Not counted for a missing worktree.</param>
 /// <param name="PullRequestUrl">The pull request its branch is tagged with (<see cref="Tags.Set"/>).</param>
 /// <param name="TicketUrl">The ticket its branch is tagged with.</param>
+/// <param name="BranchGone">Its branch was deleted on origin, as when its pull request was merged (<see cref="Workspace.CleanUp"/>).</param>
 public sealed record Worktree(
     string Path, string? Branch, bool IsMain, bool IsMissing, int ChangedFiles = 0,
-    string? PullRequestUrl = null, string? TicketUrl = null)
+    string? PullRequestUrl = null, string? TicketUrl = null, bool BranchGone = false)
 {
     public string FolderName => System.IO.Path.GetFileName(Path);
 

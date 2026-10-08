@@ -28,7 +28,8 @@ public partial class MainWindow : Window
         Avalonia.Controls.Chrome.WindowDecorationProperties.SetElementRole(TitleBar, WindowDecorationsElementRole.TitleBar);
 
         RepoList.AddHandler(DoubleTappedEvent, Row_DoubleTapped, handledEventsToo: true);
-        Opened += (_, _) => _ = _viewModel.RefreshAsync();
+        // Opening the app checks origin for branches deleted there; coming back to it just rescans.
+        Opened += (_, _) => _ = _viewModel.RefreshAsync(fetch: true);
         Activated += (_, _) => _ = _viewModel.RefreshAsync();
         Closed += (_, _) => _viewModel.Dispose();
     }
@@ -41,7 +42,7 @@ public partial class MainWindow : Window
         if (folders is [var folder] && folder.TryGetLocalPath() is { } path) await _viewModel.ChooseRootAsync(path);
     }
 
-    async void Refresh_Click(object? sender, RoutedEventArgs e) => await _viewModel.RefreshAsync(redraw: true);
+    async void Refresh_Click(object? sender, RoutedEventArgs e) => await _viewModel.RefreshAsync(redraw: true, fetch: true);
 
     // Repo rows
 
@@ -95,6 +96,11 @@ public partial class MainWindow : Window
                 $"This worktree has {atRisk.Describe()}. Removing the worktree deletes that work.{kept}", "Delete work and remove", danger: true)
             : await Dialog.Confirm(this, "Remove worktree", row.Title, $"Deletes its folder.{kept}", "Remove", danger: true);
         if (confirmed) await _viewModel.RemoveWorktreeAsync(row, force: atRisk is not null);
+    }
+
+    async void CleanUp_Click(object? sender, RoutedEventArgs e)
+    {
+        if (RowOf<WorktreeRow>(sender) is { } row) await _viewModel.CleanUpAsync(row);
     }
 
     // Any row

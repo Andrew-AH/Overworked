@@ -15,6 +15,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     IReadOnlyList<RepoRow> _rows = [];
     string _summaryCount = "", _summaryRest = "";
     bool _mustRedraw = true; // redraw after the next scan even if nothing changed: the first scan, or a manual refresh
+    bool _mustFetch;         // fetch origin before the next scan
     bool _refreshing, _refreshAgain;
     int _edits;              // bumped by our own changes, so a full scan that started before one is known to be stale
 
@@ -46,22 +47,32 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     /// <summary>Rescans every repo. A request that arrives mid-scan runs once the current scan finishes.</summary>
     /// <param name="redraw">Redraw the list even if nothing changed.</param>
-    public async Task RefreshAsync(bool redraw = false)
+    /// <param name="fetch">Fetch origin first, for the repos with worktrees, to see which of their branches were deleted there.</param>
+    public async Task RefreshAsync(bool redraw = false, bool fetch = false)
     {
         if (redraw) _mustRedraw = true;
+        if (fetch) _mustFetch = true;
         if (_refreshing) { _refreshAgain = true; return; }
         _refreshing = true;
         try
         {
+            IReadOnlyList<string>? fetchFailures = null; // set once fetched, until the scan after it is shown
             do
             {
                 _refreshAgain = false;
                 if (_workspace is not { } workspace) return;
+                if (_mustFetch)
+                {
+                    _mustFetch = false;
+                    fetchFailures = await FetchInFlightAsync(workspace);
+                }
                 var edits = _edits;
                 var repos = await Task.Run(workspace.LoadRepos);
                 // We changed something while this scan ran, so parts of it predate that change: scan again.
                 if (edits != _edits) { _refreshAgain = true; continue; }
                 Show(repos);
+                if (fetchFailures is not null) ReportFetch(repos, fetchFailures);
+                fetchFailures = null;
             }
             while (_refreshAgain);
         }
@@ -117,6 +128,17 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         });
     }
 
+    /// <summary>Removes a worktree whose branch was deleted on origin, and the branch too if origin had all of it.</summary>
+    public Task CleanUpAsync(WorktreeRow row) =>
+        ChangeRepoAsync(row.Repo, $"Cleaning up {row.Title}…", workspace =>
+        {
+            var result = workspace.CleanUp(row.Repo, row.Worktree);
+            var done = result.BranchDeleted
+                ? $"Cleaned up {row.Title}: removed the worktree and its branch"
+                : $"Removed the {row.Title} worktree. Kept its branch, which may have commits origin never got.";
+            return result.FolderRemoved ? done : $"{done} Its empty folder goes once VS Code or a terminal stops using it.";
+        });
+
     public void ToggleExpanded(RepoRow row)
     {
         row.IsExpanded = !row.IsExpanded;
@@ -146,6 +168,36 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             Status.ShowError(e.Message);
             await ReloadAsync(workspace, repo);
         }
+    }
+
+    /// <summary>
+    /// Fetches origin for each repo with worktrees, so the next scan sees which of their branches were deleted there.
+    /// Returns what failed, one line per repo; null when there was nothing to fetch.
+    /// </summary>
+    async Task<IReadOnlyList<string>?> FetchInFlightAsync(Workspace workspace)
+    {
+        var known = _repos.Count > 0 ? _repos : await Task.Run(workspace.LoadRepos);
+        var inFlight = known.Where(r => r.Linked.Any()).ToList();
+        if (inFlight.Count == 0) return null;
+        Status.ShowProgress("Checking origin…");
+        return await Task.Run(() => inFlight
+            .AsParallel()
+            .Select(repo =>
+            {
+                try { Branches.Fetch(repo.Path); return null; }
+                catch (OverworkedException e) { return $"{repo.Name}: {e.Message.Split('\n')[0]}"; }
+            })
+            .OfType<string>()
+            .ToList());
+    }
+
+    void ReportFetch(IReadOnlyList<Repo> repos, IReadOnlyList<string> failures)
+    {
+        var gone = repos.Sum(r => r.Linked.Count(w => w.BranchGone && !w.IsMissing));
+        if (failures.Count > 0) Status.ShowError($"Couldn't check origin for {failures[0]}");
+        else if (gone == 1) Status.Show("1 worktree's branch was deleted on origin. Clean up removes it.");
+        else if (gone > 1) Status.Show($"{gone} worktrees' branches were deleted on origin. Clean up removes them.");
+        else Status.Show("Checked origin");
     }
 
     /// <summary>Rescans one repo after we changed it, so its row is right straight away; a full scan takes seconds.</summary>

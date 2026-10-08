@@ -17,6 +17,7 @@ Overworked shows every repo in one folder with its worktrees underneath, and kee
 - **Tickets in colour.** Tag a worktree with its ticket, and every repo working on that ticket shows it in the same colour.
 - **Pull requests at a glance.** Tag it with its PR, and a pill links straight to it.
 - **Nothing lost.** Uncommitted work shows as "3 changed", and removing a worktree asks before throwing work away.
+- **Tidy after merging.** Once a PR is merged and its branch deleted on origin, its worktree gets a **Clean up** button.
 - **One click** opens any worktree in VS Code, a terminal or your file browser.
 - **A command line, `ow`,** does the same things, for scripts and AI coding agents.
 
@@ -71,6 +72,8 @@ with its worktrees underneath, and the repos you have worktrees in sit at the to
 | **Right-click** a worktree | open it in VS Code, a folder or a terminal; copy its branch; tag it; remove it |
 | **Right-click** a repo | switch its branch, plus the same actions |
 | **Click** a tag | open the ticket or pull request |
+| **↻** at the top | rescan, and check origin for branches deleted there (opening the app does this too) |
+| **Clean up** on a worktree | remove it after its branch was deleted on origin, say by a squash merge |
 
 <table>
   <tr>
@@ -119,6 +122,8 @@ Add `--json` to any command for output a script can read.
   Windows, `~/.config/Overworked/config.json` on macOS), and tags live in each repo's own git config.
 - Removing a worktree keeps its branch. If VS Code or a terminal still has the folder open, the empty folder goes
   on a later refresh.
+- **Clean up** also deletes the worktree's local branch, but only if origin had every commit on it. If there's
+  anything newer, or it can't tell (the branch was pruned by some other fetch first), the branch stays.
 - The Mac build is signed for the Mac that built it. To open a copy on another Mac, allow it under System Settings →
   Privacy & Security → Open Anyway.
 

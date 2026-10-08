@@ -147,7 +147,8 @@ void PrintRepo(Repo repo)
     Console.WriteLine(repo.Error is null ? repo.Name : $"{repo.Name}  (error: {repo.Error})");
     foreach (var w in repo.Worktrees)
     {
-        var state = w.IsMissing ? "missing" : w.ChangedFiles > 0 ? $"{w.ChangedFiles} changed" : "";
+        var state = w.IsMissing ? "missing"
+            : string.Join(", ", new[] { w.BranchGone ? "gone" : "", w.ChangedFiles > 0 ? $"{w.ChangedFiles} changed" : "" }.Where(s => s.Length > 0));
         Console.WriteLine($"  {(w.IsMain ? "*" : "-")} {w.Branch ?? "(detached)",-45} {state,-11} {w.TicketKey,-10} {(w.PullRequestUrl is null ? "" : "PR"),-2} {w.Path}");
     }
 }

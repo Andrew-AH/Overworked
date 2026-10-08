@@ -66,7 +66,7 @@
           <TextBlock Text="{Binding RootName}" Classes="mono" Foreground="{Binding $parent[Button].Foreground}" VerticalAlignment="Center" />
         </StackPanel>
       </Button>
-      <Button Grid.Column="2" Classes="icon" Click="Refresh_Click" IsVisible="{Binding HasRoot}" ToolTip.Tip="Refresh">
+      <Button Grid.Column="2" Classes="icon" Click="Refresh_Click" IsVisible="{Binding HasRoot}" ToolTip.Tip="Refresh, and check origin for branches deleted there">
         <Path Data="M 12,7 A 5,5 0 1 1 10.5,3.4 M 11,0.8 L 11,3.8 L 8,3.8" Width="14" Height="14" />
       </Button>
     </Grid>
@@ -139,6 +139,7 @@
                             <MenuItem Header="Tag ticket…" Click="TagTicket_Click" IsVisible="{Binding HasBranch}" />
                             <MenuItem Header="Tag pull request…" Click="TagPullRequest_Click" IsVisible="{Binding HasBranch}" />
                             <Separator />
+                            <MenuItem Header="Clean up" Click="CleanUp_Click" IsVisible="{Binding IsGone}" />
                             <MenuItem Header="Remove worktree…" Click="RemoveWorktree_Click" />
                           </ContextMenu>
                         </Border.ContextMenu>
@@ -166,6 +167,9 @@
                                     Click="OpenTicket_Click" Margin="8,5,0,0" VerticalAlignment="Top" IsVisible="{Binding HasTicket}" />
                             <Button Classes="tag pr" Content="{Binding PullRequestText}" ToolTip.Tip="{Binding PullRequestUrl}" Click="OpenPullRequest_Click"
                                     Margin="8,5,0,0" VerticalAlignment="Top" IsVisible="{Binding HasPullRequest}" />
+                            <Button Classes="tag cleanup" Content="Clean up" Click="CleanUp_Click" IsVisible="{Binding IsGone}"
+                                    ToolTip.Tip="Remove this worktree, and its branch too if origin had all of it"
+                                    Margin="8,5,0,0" VerticalAlignment="Top" />
                           </StackPanel>
                         </Grid>
                       </Border>

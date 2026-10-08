@@ -81,6 +81,22 @@ public sealed class Workspace(string root)
         return !Directory.Exists(worktree.Path);
     }
 
+    /// <summary>
+    /// Cleans up after a worktree whose branch was deleted on origin, as when its pull request was squash-merged:
+    /// removes the worktree (refusing, like <see cref="RemoveWorktree"/>, when that would lose work), then deletes the
+    /// local branch if origin had every commit on it. If there's anything newer, or no way to tell, the branch stays.
+    /// </summary>
+    /// <exception cref="OverworkedException">Its branch is still on origin, it has work at risk, or git failed.</exception>
+    public CleanUpResult CleanUp(Repo repo, Worktree worktree)
+    {
+        if (worktree is not { BranchGone: true, Branch: { } branch })
+            throw new OverworkedException($"{worktree.FolderName}'s branch is still on origin, so there's nothing to clean up.");
+        var folderRemoved = RemoveWorktree(repo, worktree, force: false);
+        var branchDeleted = Branches.WasFullyPushed(repo.Path, branch);
+        if (branchDeleted) Branches.Delete(repo.Path, branch);
+        return new CleanUpResult(folderRemoved, branchDeleted);
+    }
+
     /// <summary>Deletes empty folders under &lt;root&gt;/.worktrees: leftovers of worktrees removed while in use.</summary>
     public void Tidy()
     {
@@ -106,6 +122,7 @@ public sealed class Workspace(string root)
         try
         {
             var tags = Tags.ByBranch(path);
+            var gone = Branches.Gone(path);
             var worktrees = Worktrees.List(path)
                 .AsParallel().AsOrdered()
                 .Select(w =>
@@ -116,6 +133,7 @@ public sealed class Workspace(string root)
                         ChangedFiles = w.IsMissing ? 0 : Worktrees.CountChangedFiles(w.Path),
                         PullRequestUrl = tagged.PullRequestUrl,
                         TicketUrl = tagged.TicketUrl,
+                        BranchGone = w.Branch is not null && gone.Contains(w.Branch),
                     };
                 })
                 .ToList();

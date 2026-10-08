@@ -211,6 +211,53 @@ public sealed class WorkspaceTests : IDisposable
     }
 
     [Fact]
+    public void Cleans_up_after_a_branch_deleted_on_origin_deleting_it_only_if_origin_had_all_of_it()
+    {
+        var root = NewRoot();
+        var app = CloneWithOneCommit(root, "app");
+        var workspace = new Workspace(root);
+        var merged = PushedWorktree(workspace, "feature-a");
+        var ahead = PushedWorktree(workspace, "feature-b");
+        CommitFile(ahead.Path, "later.txt", "a commit origin never gets");
+        DeleteOnOrigin("app", "feature-a", "feature-b"); // GitHub squash-merges both PRs and deletes the branches
+
+        Assert.DoesNotContain(workspace.LoadRepo("app").Linked, w => w.BranchGone); // nothing to tell until a fetch
+        Branches.Fetch(app);
+        var repo = workspace.LoadRepo("app");
+        Assert.All(repo.Linked, w => Assert.True(w.BranchGone));
+
+        Assert.Equal(new CleanUpResult(FolderRemoved: true, BranchDeleted: true), workspace.CleanUp(repo, repo.Linked.Single(w => w.Branch == "feature-a")));
+        Assert.Equal(new CleanUpResult(FolderRemoved: true, BranchDeleted: false), workspace.CleanUp(repo, repo.Linked.Single(w => w.Branch == "feature-b")));
+
+        Assert.Empty(workspace.LoadRepo("app").Linked);
+        Assert.False(Git.Succeeds(app, "show-ref", "--verify", "--quiet", "refs/heads/feature-a")); // all on origin: gone
+        Assert.True(Git.Succeeds(app, "show-ref", "--verify", "--quiet", "refs/heads/feature-b"));  // had more: kept
+    }
+
+    [Fact]
+    public void Cleaning_up_keeps_uncommitted_work_and_branches_it_cant_vouch_for()
+    {
+        var root = NewRoot();
+        var app = CloneWithOneCommit(root, "app");
+        var workspace = new Workspace(root);
+        var dirty = PushedWorktree(workspace, "feature-c");
+        PushedWorktree(workspace, "feature-d");
+        PushedWorktree(workspace, "feature-e");
+        File.WriteAllText(Path.Combine(dirty.Path, "wip.txt"), "x");
+        DeleteOnOrigin("app", "feature-c", "feature-d");
+        Git.Run(app, "fetch", "--prune", "origin"); // pruned by something else, so there's no note of what origin had
+
+        var repo = workspace.LoadRepo("app");
+        Worktree Linked(string branch) => repo.Linked.Single(w => w.Branch == branch);
+
+        Assert.Throws<OverworkedException>(() => workspace.CleanUp(repo, Linked("feature-c"))); // uncommitted work
+        Assert.True(Directory.Exists(dirty.Path));
+        Assert.Equal(new CleanUpResult(FolderRemoved: true, BranchDeleted: false), workspace.CleanUp(repo, Linked("feature-d")));
+        Assert.True(Git.Succeeds(app, "show-ref", "--verify", "--quiet", "refs/heads/feature-d")); // can't tell: kept
+        Assert.Throws<OverworkedException>(() => workspace.CleanUp(repo, Linked("feature-e")));  // still on origin
+    }
+
+    [Fact]
     public void A_rescan_that_finds_nothing_new_equals_the_last_one()
     {
         var root = NewRoot();
@@ -238,6 +285,28 @@ public sealed class WorkspaceTests : IDisposable
         Commit(app, "init");
         Git.Run(app, "push", "origin", "main");
         return app;
+    }
+
+    /// <summary>A worktree with a commit, pushed so its branch tracks origin's, as opening a PR does.</summary>
+    static Worktree PushedWorktree(Workspace workspace, string branch)
+    {
+        var worktree = workspace.CreateWorktree(workspace.LoadRepo("app"), branch);
+        CommitFile(worktree.Path, $"{branch}.txt", $"work on {branch}");
+        Git.Run(worktree.Path, "push", "-q", "-u", "origin", branch);
+        return worktree;
+    }
+
+    static void CommitFile(string dir, string file, string message)
+    {
+        File.WriteAllText(Path.Combine(dir, file), message);
+        Git.Run(dir, "add", file);
+        Commit(dir, message);
+    }
+
+    /// <summary>Deletes branches on the origin itself, as GitHub does after a merge; this clone doesn't know yet.</summary>
+    void DeleteOnOrigin(string repo, params string[] branches)
+    {
+        foreach (var branch in branches) Git.Run(Path.Combine(_dir, $"{repo}.git"), "branch", "-D", branch);
     }
 
     static void Commit(string dir, string message) =>
