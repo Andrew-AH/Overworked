@@ -1,117 +1,140 @@
-# Overworked
+<p align="center"><img src="src/Overworked.App/Assets/logo-256.png" width="96" alt=""></p>
 
-A small desktop app (Windows + macOS) for juggling git worktrees across many repos.
+<h1 align="center">Overworked</h1>
 
-Point it at the folder that holds your repos. Every direct subfolder with a `.git` directory is a
-main repo; its worktrees show underneath it. New worktrees go in `<root>/.worktrees/<repo>/<branch>`
-and new branches start from `origin/main`.
+<p align="center">One window for every repo and git worktree you're juggling. Windows and macOS.</p>
 
-- **Double-click** a row to open it in VS Code.
-- **Right-click** for: open in VS Code / folder / terminal, new worktree, tag ticket / pull request, remove worktree.
-- The chevron on a repo collapses or expands its worktrees.
-- **+ (or New worktree…)** opens the same branch search: pick any branch, local or on origin, to open it as a
-  worktree, or type a new name to create one from origin/main. Worktree rows show just their branch.
-- **Right-click a main repo** for its menu, topped by a "Switch branch" search box that changes the main folder's
-  branch in place (no worktree involved). Click into it to list every
-  branch, type to filter (VS Code style matching); ↑/↓ and Enter pick one, Esc closes. It fetches origin while open;
-  remote-only branches become local tracking branches, and a new name creates a branch from origin/main. Branches
-  open in a worktree are shown but can't be picked. Worktrees don't offer switching: they stay on the branch they
-  were made for.
-- Removing a worktree keeps its branch, and refuses to drop uncommitted changes or unpushed submodule
-  commits without confirmation. (A linked worktree's submodule data is deleted with the worktree.)
-  If VS Code or a terminal still has the folder open, the work is removed and the empty folder is
-  deleted on a later refresh, once it's let go.
-- Tag a row's branch with its ticket or pull request from its right-click menu (**Tag ticket…**, **Tag pull request…**:
-  paste the link), or with `ow ticket` / `ow pr`. A branch can have both. Opening the menu item again shows the link,
-  to change it.
-- A row whose branch has a pull request shows a **PR #n** pill; click it to open the PR.
-- A ticket link can come from any company's Jira (or any tracker with keys like PROJ-123): the ticket's page
-  (`…/browse/PROJ-123`), or a board or backlog with it open (`…?selectedIssue=PROJ-123`).
-- A row whose branch has a ticket shows its key, e.g. **PROJ-123**,
-  in that ticket's colour. Every ticket in view gets its own colour, shared by every repo working on it, so one ticket's
-  worktrees read as a group. Click it to open the ticket.
-- The tree updates on its own when worktrees change, including ones made from the CLI.
+<p align="center"><img src="docs/main.png" width="460" alt="Overworked listing five repos with their worktrees, ticket tags and pull requests"></p>
 
-Git is the source of truth. Overworked only stores the root folder and where the app lives
-(`%APPDATA%\Overworked\config.json` on Windows, `~/.config/Overworked/config.json` on macOS).
-Tags live in the repo's git config as `branch.<name>.overworked-pr` and `branch.<name>.overworked-ticket`, so
-deleting a branch drops its tags.
+## Why
 
-## CLI (`ow`)
+Working on a few things at once usually means git worktrees: a folder per branch, so you're not stashing and
+switching all day. But they pile up across repos, and it gets hard to keep track of which folder is which branch,
+what still has uncommitted work, which repos a ticket touches, and whether it has a pull request yet.
 
-The same operations, for scripts and for Claude (the global `managing-worktrees` skill tells Claude to use it):
+Overworked shows every repo in one folder with its worktrees underneath, and keeps the list current as you work:
 
-```
-ow app                               open the Overworked app (no-op if it's already open)
-ow root [folder]                     show or set the folder that holds your repos
-ow list [repo]                       repos and their worktrees (one repo is faster)
-ow path <repo> [branch]              folder of the main checkout, or of a branch's worktree
-ow branches <repo> [--fetch]         branches, newest first, and where each is checked out
-ow new <repo> <branch>               open a branch as a worktree (a new name branches from origin/main)
-ow switch <repo> <branch> [--create] switch the main folder's branch (--create: new branch from origin/main)
-ow remove <repo> <branch> [--force]  remove a worktree; refuses if work would be lost unless --force
-ow pr <repo> <branch> <url>          tag a worktree's branch with its pull request (the app shows it)
-ow ticket <repo> <branch> <url>      tag a worktree's branch with its ticket (the app shows its key, one colour per ticket)
+- **Tickets in colour.** Tag a worktree with its ticket, and every repo working on that ticket shows it in the same colour.
+- **Pull requests at a glance.** Tag it with its PR, and a pill links straight to it.
+- **Nothing lost.** Uncommitted work shows as "3 changed", and removing a worktree asks before throwing work away.
+- **One click** opens any worktree in VS Code, a terminal or your file browser.
+- **A command line, `ow`,** does the same things, for scripts and AI coding agents.
+
+## Get started
+
+You need [git](https://git-scm.com/downloads) and the [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0).
+
+### Windows
+
+```powershell
+git clone https://github.com/Andrew-AH/Overworked.git   # or unzip a copy
+cd Overworked
+dotnet run --project src/Overworked.App                  # starts the app
 ```
 
-Add `--json` to any command for machine-readable output. Errors go to stderr with a non-zero exit code.
+For an `Overworked.exe` you can keep and pin to the taskbar:
 
-Install it as a global tool (same on Windows and macOS). Bump `<Version>` in the csproj before updating:
+```powershell
+dotnet publish src/Overworked.App -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none -o publish/win
+# the app is now publish\win\Overworked.exe
+```
+
+### macOS
+
+```bash
+brew install --cask dotnet-sdk                           # if you don't have .NET yet
+git clone https://github.com/Andrew-AH/Overworked.git    # or unzip a copy
+cd Overworked
+./mac/package.sh                                         # builds the app and a .dmg (Intel Mac: ./mac/package.sh osx-x64)
+open publish/mac/Overworked-*.dmg                        # drag Overworked into Applications
+```
+
+### The `ow` command (Windows and macOS)
 
 ```
 dotnet pack src/Overworked.Cli -c Release -o nupkg
-dotnet tool install -g Overworked.Cli --add-source ./nupkg --ignore-failed-sources   # or: dotnet tool update -g ...
+dotnet tool install -g Overworked.Cli --add-source ./nupkg   # adds `ow` to your PATH
 ```
 
-## Build and run
+### First run
+
+Click **Choose folder** and pick the folder your repos live in (say `C:\code` or `~/code`). Each repo in it appears
+with its worktrees underneath. New worktrees go in `.worktrees/<repo>/<branch>` inside that folder.
+
+## Using it
+
+| Do this | To |
+|---|---|
+| **Double-click** a row | open it in VS Code |
+| **+** on a repo | open any branch as a worktree, or type a new name to branch from `origin/main` |
+| **Right-click** a worktree | open it in VS Code, a folder or a terminal; copy its branch; tag it; remove it |
+| **Right-click** a repo | switch its branch, plus the same actions |
+| **Click** a tag | open the ticket or pull request |
+
+<table>
+  <tr>
+    <td><img src="docs/menu.png" alt="The right-click menu on a worktree"></td>
+    <td><img src="docs/branches.png" alt="Picking a branch to open as a worktree"></td>
+  </tr>
+  <tr>
+    <td align="center">Right-click a worktree</td>
+    <td align="center">+ opens a branch as a worktree</td>
+  </tr>
+</table>
+
+### Tags
+
+Right-click a row, choose **Tag ticket…** or **Tag pull request…**, and paste the link. A branch can have both.
+
+<p align="center"><img src="docs/tag.png" width="400" alt="The Tag ticket dialog"></p>
+
+- Ticket links can come from any company's Jira, cloud or self-hosted, or any tracker with keys like `PROJ-123`:
+  the ticket's own page (`…/browse/PROJ-123`) or a board with it open (`…?selectedIssue=PROJ-123`).
+- Each ticket gets its own colour, shared by every row tagged with it.
+- Deleting a branch drops its tags.
+
+## Command line
+
+`ow` does what the app does, from a terminal. The app updates as soon as `ow` changes something.
 
 ```
-dotnet run --project src/Overworked.App
+ow app                               open the app
+ow root [folder]                     show or set the folder that holds your repos
+ow list [repo]                       repos and their worktrees
+ow path <repo> [branch]              folder of a repo, or of a branch's worktree
+ow branches <repo> [--fetch]         branches, newest first, and where each is checked out
+ow new <repo> <branch>               open a branch as a worktree (a new name branches from origin/main)
+ow switch <repo> <branch> [--create] switch a repo's own branch
+ow remove <repo> <branch> [--force]  remove a worktree; refuses if work would be lost unless --force
+ow pr <repo> <branch> <url>          tag a branch with its pull request
+ow ticket <repo> <branch> <url>      tag a branch with its ticket
+```
+
+Add `--json` to any command for output a script can read.
+
+## Good to know
+
+- Git is the source of truth. Overworked only remembers your repos folder (`%APPDATA%\Overworked\config.json` on
+  Windows, `~/.config/Overworked/config.json` on macOS), and tags live in each repo's own git config.
+- Removing a worktree keeps its branch. If VS Code or a terminal still has the folder open, the empty folder goes
+  on a later refresh.
+- The Mac build is signed for the Mac that built it. To open a copy on another Mac, allow it under System Settings →
+  Privacy & Security → Open Anyway.
+
+## Development
+
+```
 dotnet test
 ```
 
-Publish a single executable on Windows:
+To update an installed `ow`, bump `<Version>` in `src/Overworked.Cli/Overworked.Cli.csproj`, pack again, and run
+`dotnet tool update -g Overworked.Cli --add-source ./nupkg`.
 
 ```
-dotnet publish src/Overworked.App -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none -o publish/win
-
-# (Skia/HarfBuzz .pdb files still land next to the exe; they're not needed and can be deleted.)
-```
-
-## On a Mac
-
-Build the app and its disk image on the Mac itself: it needs Apple's tools (`hdiutil`, `iconutil`, `codesign`), and
-Apple silicon only runs code signed on a Mac. You need the .NET 9 SDK (`brew install --cask dotnet-sdk`) and git.
-
-```
-git clone <this repo> && cd Overworked
-./mac/package.sh              # Intel Mac: ./mac/package.sh osx-x64
-open publish/mac/Overworked-*.dmg
-```
-
-Drag Overworked into Applications and open it from there; it remembers where it lives, so `ow app` opens it after
-that. Install `ow` as above, and put `~/.dotnet/tools` on your PATH if `dotnet tool install` asks you to.
-
-The app is signed ad hoc, which is fine on the Mac that built it. Copied to another Mac it's quarantined: allow it in
-System Settings → Privacy & Security → Open Anyway, or run `xattr -dr com.apple.quarantine /Applications/Overworked.app`.
-Handing it out properly would need an Apple Developer ID and notarisation.
-
-Apps started from Finder or the Dock don't get your shell's PATH, so Overworked (and `ow`) add `/opt/homebrew/bin`
-and `/usr/local/bin` to find git.
-
-## Layout
-
-```
-src/Overworked.Core            scanning, git worktree operations, config (no UI)
-  Workspace                    the repos folder: load repos; create, remove and tidy worktrees
-  Branches, Worktrees,         each pairs its git commands with a pure Parse of their output
-  Submodules, Tags
-  Repo, Worktree, BranchRef…   plain records
-src/Overworked.App             Avalonia UI; Platform.cs is the only OS-specific file
-  ViewModels/                  state and every change to a repo (MainViewModel), rows, branch search
-  Views/                       the window, menus and dialogs: only what needs a view
-src/Overworked.Cli             the `ow` command; JsonOutput.cs is the --json contract
+src/Overworked.Core            git operations, scanning, tags, config (no UI)
+src/Overworked.App             the Avalonia app: ViewModels/ hold state and changes, Views/ the window and menus
+src/Overworked.Cli             the `ow` command; JsonOutput.cs is its --json contract
 mac/package.sh                 builds Overworked.app and its .dmg (run on a Mac)
-tests/Overworked.Core.Tests    real git against throwaway repos, plus parser tests
-tests/Overworked.App.Tests     branch search, ticket colours
+tests/                         real git against throwaway repos, plus unit tests
+docs/                          README screenshots
 ```
