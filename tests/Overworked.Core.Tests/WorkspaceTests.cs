@@ -271,19 +271,33 @@ public sealed class WorkspaceTests : IDisposable
         Assert.NotEqual(before, workspace.LoadRepo("app"));
     }
 
+    [Fact]
+    public void A_repo_whose_default_branch_is_master_branches_from_origin_master()
+    {
+        var root = NewRoot();
+        var app = CloneWithOneCommit(root, "app", defaultBranch: "master");
+        var workspace = new Workspace(root);
+
+        workspace.CreateWorktree(workspace.LoadRepo("app"), "PROJ-13");
+        Branches.Switch(app, "PROJ-14", create: true);
+
+        Assert.Equal(Git.Run(app, "rev-parse", "origin/master"), Git.Run(app, "rev-parse", "PROJ-13"));
+        Assert.Equal(Git.Run(app, "rev-parse", "origin/master"), Git.Run(app, "rev-parse", "PROJ-14"));
+    }
+
     string NewRoot() => Directory.CreateDirectory(Path.Combine(_dir, "repos")).FullName;
 
-    string CloneWithOneCommit(string root, string name)
+    string CloneWithOneCommit(string root, string name, string defaultBranch = "main")
     {
         var origin = Path.Combine(_dir, $"{name}.git");
-        Git.Run(_dir, "init", "--bare", "-b", "main", origin);
+        Git.Run(_dir, "init", "--bare", "-b", defaultBranch, origin);
         Git.Run(root, "clone", origin, name);
         var app = Path.Combine(root, name);
-        Git.Run(app, "symbolic-ref", "HEAD", "refs/heads/main");
+        Git.Run(app, "symbolic-ref", "HEAD", $"refs/heads/{defaultBranch}");
         File.WriteAllText(Path.Combine(app, "readme.txt"), "hi");
         Git.Run(app, "add", ".");
         Commit(app, "init");
-        Git.Run(app, "push", "origin", "main");
+        Git.Run(app, "push", "origin", defaultBranch);
         return app;
     }
 

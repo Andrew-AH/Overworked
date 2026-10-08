@@ -3,11 +3,12 @@ namespace Overworked.Core;
 /// <summary>Listing, fetching and switching branches.</summary>
 public static class Branches
 {
-    /// <summary>Where new branches start, whether made for a worktree or by switching.</summary>
-    internal const string Base = "origin/main";
-
     const string LocalPrefix = "refs/heads/";
     const string OriginPrefix = "refs/remotes/origin/";
+
+    /// <summary>Where new branches start, whether made for a worktree or by switching: origin/main, or origin/master in repos without a main.</summary>
+    internal static string Base(string repoPath) =>
+        Git.Succeeds(repoPath, "show-ref", "--verify", "--quiet", OriginPrefix + "main") ? "origin/main" : "origin/master";
 
     // git config: the last commit origin had of a branch, noted as its copy there was deleted.
     const string LastPushedSetting = "overworked-last-pushed";
@@ -58,7 +59,7 @@ public static class Branches
     public static void Switch(string worktreePath, string branch, bool create)
     {
         branch = RequireName(branch);
-        if (create) Git.Run(worktreePath, "switch", "--no-track", "-c", branch, Base);
+        if (create) Git.Run(worktreePath, "switch", "--no-track", "-c", branch, Base(worktreePath));
         else Git.Run(worktreePath, "switch", branch);
     }
 

@@ -48,7 +48,7 @@ public sealed class Workspace(string root)
         if (Branches.Exists(repo.Path, branch))
             Git.Run(repo.Path, "worktree", "add", path, branch);
         else
-            Git.Run(repo.Path, "worktree", "add", "--no-track", "-b", branch, path, Branches.Base);
+            Git.Run(repo.Path, "worktree", "add", "--no-track", "-b", branch, path, Branches.Base(repo.Path));
 
         Submodules.Init(path);
         return new Worktree(path, branch, IsMain: false, IsMissing: false);
