@@ -165,9 +165,12 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
         _mustRedraw = false;
         var colours = RowColours.For(repos);
-        Rows = repos.Select(r => new RepoRow(r, isExpanded: !_collapsed.Contains(r.Path), colours)).ToList();
+        Rows = InFlightFirst(repos).Select(r => new RepoRow(r, isExpanded: !_collapsed.Contains(r.Path), colours)).ToList();
         var worktrees = repos.Sum(r => r.Linked.Count(w => !w.IsMissing));
         SummaryCount = worktrees == 0 ? "Nothing" : Plural.Of(worktrees, "worktree");
         SummaryRest = $" in flight across {Plural.Of(repos.Count, "repo")}";
     }
+
+    /// <summary>Repos with worktrees first, so the work in flight sits at the top; each group keeps its order.</summary>
+    internal static IEnumerable<Repo> InFlightFirst(IEnumerable<Repo> repos) => repos.OrderBy(r => r.Linked.Any() ? 0 : 1);
 }

@@ -59,7 +59,8 @@ dotnet tool install -g Overworked.Cli --add-source ./nupkg   # adds `ow` to your
 ### First run
 
 Click **Choose folder** and pick the folder your repos live in (say `C:\code` or `~/code`). Each repo in it appears
-with its worktrees underneath. New worktrees go in `.worktrees/<repo>/<branch>` inside that folder.
+with its worktrees underneath, and the repos you have worktrees in sit at the top. New worktrees go in
+`.worktrees/<repo>/<branch>` inside that folder.
 
 ## Using it
 
