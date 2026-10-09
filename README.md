@@ -77,7 +77,7 @@ with its worktrees underneath, and the repos you have worktrees in sit at the to
 | **Right-click** a worktree | open it in VS Code, a folder or a terminal; copy its branch; tag it; work with its ticket; remove it |
 | **Right-click** a repo | switch its branch, plus the same actions |
 | **Click** a tag | open the ticket or pull request |
-| **↻** at the top | rescan, and check origin for branches deleted there (opening the app does this too, and so does coming back to it after 15 minutes) |
+| **↻** at the top | rescan, and check origin for branches deleted there; it spins while that runs (opening the app does this too, and it runs by itself every minute) |
 | **Clean up** on a worktree | remove it after its branch was deleted on origin, say by a squash merge |
 | **Clean up** on a repo | switch its own folder back to main after the branch it was on was deleted on origin |
 

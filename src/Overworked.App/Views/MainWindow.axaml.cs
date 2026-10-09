@@ -28,9 +28,9 @@ public partial class MainWindow : Window
         Avalonia.Controls.Chrome.WindowDecorationProperties.SetElementRole(TitleBar, WindowDecorationsElementRole.TitleBar);
 
         RepoList.AddHandler(DoubleTappedEvent, Row_DoubleTapped, handledEventsToo: true);
-        // Opening the app checks origin for branches deleted there; coming back to it rescans, and checks again if it's been a while.
+        // Opening the app checks origin for branches deleted there; coming back to it rescans. Both also happen every minute.
         Opened += (_, _) => _ = _viewModel.RefreshAsync(fetch: true);
-        Activated += (_, _) => _ = _viewModel.CatchUpAsync();
+        Activated += (_, _) => _ = _viewModel.RefreshAsync();
         Closed += (_, _) => _viewModel.Dispose();
     }
 

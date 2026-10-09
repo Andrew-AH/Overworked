@@ -1,16 +1,16 @@
+using Avalonia.Threading;
 using Overworked.Core;
 
 namespace Overworked.App.ViewModels;
 
 /// <summary>
 /// The window's state: the repos folder, its repos as rows, and the status bar. Changes to repos run through here, and
-/// the list follows changes made on disk, including by `ow`.
+/// the list follows changes made on disk, including by `ow`, and refreshes itself every minute.
 /// </summary>
 public sealed class MainViewModel : ObservableObject, IDisposable
 {
-    static readonly TimeSpan RefetchAfter = TimeSpan.FromMinutes(15);
-
     readonly RepoWatcher _watcher = new();
+    readonly DispatcherTimer _everyMinute = new() { Interval = TimeSpan.FromMinutes(1) };
     readonly HashSet<string> _collapsed = new(StringComparer.OrdinalIgnoreCase); // repos whose worktrees are hidden
     Workspace? _workspace = Config.LoadRoot() is { } root ? new Workspace(root) : null;
     IReadOnlyList<Repo> _repos = [];
@@ -18,17 +18,27 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     string _summaryCount = "", _summaryRest = "";
     bool _mustRedraw = true; // redraw after the next scan even if nothing changed: the first scan, or a manual refresh
     bool _mustFetch;         // fetch origin before the next scan
-    DateTimeOffset _fetchedAt = DateTimeOffset.MinValue; // when a fetch was last asked for
+    bool _reportFetch;       // say how that fetch went: someone asked for it, rather than the minutely refresh
     bool _refreshing, _refreshAgain;
     int _edits;              // bumped by our own changes, so a full scan that started before one is known to be stale
 
-    public MainViewModel() => _watcher.Changed += () => _ = RefreshAsync();
+    public MainViewModel()
+    {
+        _watcher.Changed += () => _ = RefreshAsync();
+        // Keeps the list current while the app sits open, merges on origin included. Skipped while a refresh is still
+        // running, so they never pile up.
+        _everyMinute.Tick += (_, _) => { if (!_refreshing) _ = RefreshAsync(fetch: true, quiet: true); };
+        _everyMinute.Start();
+    }
 
     public StatusViewModel Status { get; } = new();
 
     public bool HasRoot => _workspace is not null;
     public string RootName => _workspace is null ? "" : Path.GetFileName(_workspace.Root.TrimEnd(Path.DirectorySeparatorChar));
     public string RootTip => $"{_workspace?.Root}\nClick to choose another folder";
+
+    /// <summary>A rescan is running; the refresh button spins.</summary>
+    public bool IsRefreshing { get => _refreshing; private set => Set(ref _refreshing, value); }
 
     public IReadOnlyList<RepoRow> Rows { get => _rows; private set => Set(ref _rows, value); }
 
@@ -51,30 +61,32 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     /// <summary>Rescans every repo. A request that arrives mid-scan runs once the current scan finishes.</summary>
     /// <param name="redraw">Redraw the list even if nothing changed.</param>
     /// <param name="fetch">Fetch origin first, for the repos with branches out, to see which of those were deleted there.</param>
-    public async Task RefreshAsync(bool redraw = false, bool fetch = false)
+    /// <param name="quiet">Leave the status bar alone: the minutely refresh, which the spinning button already shows.</param>
+    public async Task RefreshAsync(bool redraw = false, bool fetch = false, bool quiet = false)
     {
         if (redraw) _mustRedraw = true;
-        if (fetch) (_mustFetch, _fetchedAt) = (true, DateTimeOffset.Now);
+        if (fetch) (_mustFetch, _reportFetch) = (true, _reportFetch || !quiet);
         if (_refreshing) { _refreshAgain = true; return; }
-        _refreshing = true;
+        IsRefreshing = true;
         try
         {
             IReadOnlyList<string>? fetchFailures = null; // set once fetched, until the scan after it is shown
+            var report = false;
             do
             {
                 _refreshAgain = false;
                 if (_workspace is not { } workspace) return;
                 if (_mustFetch)
                 {
-                    _mustFetch = false;
-                    fetchFailures = await FetchInFlightAsync(workspace);
+                    (_mustFetch, report, _reportFetch) = (false, _reportFetch, false);
+                    fetchFailures = await FetchInFlightAsync(workspace, report);
                 }
                 var edits = _edits;
                 var repos = await Task.Run(workspace.LoadRepos);
                 // We changed something while this scan ran, so parts of it predate that change: scan again.
                 if (edits != _edits) { _refreshAgain = true; continue; }
                 Show(repos);
-                if (fetchFailures is not null) ReportFetch(repos, fetchFailures);
+                if (fetchFailures is not null && report) ReportFetch(repos, fetchFailures);
                 fetchFailures = null;
             }
             while (_refreshAgain);
@@ -85,15 +97,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
         finally
         {
-            _refreshing = false;
+            IsRefreshing = false;
         }
     }
-
-    /// <summary>
-    /// Rescans on coming back to the window, and checks origin again if that was a while ago, so an app left open all
-    /// day still learns which branches were merged.
-    /// </summary>
-    public Task CatchUpAsync() => RefreshAsync(fetch: DateTimeOffset.Now - _fetchedAt > RefetchAfter);
 
     /// <summary>Opens a branch as a worktree: an existing branch is checked out, a new name branches from origin/main.</summary>
     public Task CreateWorktreeAsync(RepoRow row, string branch) =>
@@ -178,7 +184,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         else _collapsed.Add(row.Path);
     }
 
-    public void Dispose() => _watcher.Dispose();
+    public void Dispose()
+    {
+        _everyMinute.Stop();
+        _watcher.Dispose();
+    }
 
     /// <summary>
     /// Runs a change to one repo off the UI thread, rescans that repo, and only then reports the change done, so the list
@@ -206,13 +216,14 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     /// Fetches origin for each repo with branches out (<see cref="Repo.MayHaveGoneBranches"/>), so the next scan sees
     /// which of those were deleted there. Returns what failed, one line per repo; null when there was nothing to fetch.
     /// </summary>
-    async Task<IReadOnlyList<string>?> FetchInFlightAsync(Workspace workspace)
+    /// <param name="report">Say so in the status bar while it runs.</param>
+    async Task<IReadOnlyList<string>?> FetchInFlightAsync(Workspace workspace, bool report)
     {
         // On opening, show the list now rather than after the fetch, which can take a while.
         if (_repos.Count == 0) Show(await Task.Run(workspace.LoadRepos));
         var inFlight = _repos.Where(r => r.MayHaveGoneBranches).ToList();
         if (inFlight.Count == 0) return null;
-        Status.ShowProgress("Checking origin…");
+        if (report) Status.ShowProgress("Checking origin…");
         return await Task.Run(() => Branches.FetchAll(inFlight));
     }
 
