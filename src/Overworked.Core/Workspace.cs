@@ -36,8 +36,9 @@ public sealed class Workspace(string root)
     }
 
     /// <summary>
-    /// Opens <paramref name="branch"/> as a worktree and initialises its submodules. An existing branch (local, or on
-    /// origin, which git turns into a tracking branch) is checked out; a new name becomes a branch from origin/main.
+    /// Opens <paramref name="branch"/> as a worktree, initialises its submodules and copies in the local files its repo's
+    /// .worktreeinclude lists (<see cref="CopyIncluded"/>). An existing branch (local, or on origin, which git turns into
+    /// a tracking branch) is checked out; a new name becomes a branch from origin/main.
     /// </summary>
     public Worktree CreateWorktree(Repo repo, string branch)
     {
@@ -51,6 +52,7 @@ public sealed class Workspace(string root)
             Git.Run(repo.Path, "worktree", "add", "--no-track", "-b", branch, path, Branches.Base(repo.Path));
 
         Submodules.Init(path);
+        CopyIncluded(repo.Path, Path.Combine(WorktreesFolder, repo.Name, ".worktreeinclude"), path);
         return new Worktree(path, branch, IsMain: false, IsMissing: false);
     }
 
@@ -82,19 +84,31 @@ public sealed class Workspace(string root)
     }
 
     /// <summary>
-    /// Cleans up after a worktree whose branch was deleted on origin, as when its pull request was squash-merged:
-    /// removes the worktree (refusing, like <see cref="RemoveWorktree"/>, when that would lose work), then deletes the
-    /// local branch if origin had every commit on it. If there's anything newer, or no way to tell, the branch stays.
+    /// Cleans up after a branch deleted on origin, as when its pull request was squash-merged: removes its worktree
+    /// (refusing, like <see cref="RemoveWorktree"/>, when that would lose work), or if it's checked out in the repo's own
+    /// folder, switches that back to main (refusing while it has uncommitted changes). Then deletes the local branch if
+    /// origin had every commit on it. If there's anything newer, or no way to tell, the branch stays.
     /// </summary>
     /// <exception cref="OverworkedException">Its branch is still on origin, it has work at risk, or git failed.</exception>
     public CleanUpResult CleanUp(Repo repo, Worktree worktree)
     {
         if (worktree is not { BranchGone: true, Branch: { } branch })
             throw new OverworkedException($"{worktree.FolderName}'s branch is still on origin, so there's nothing to clean up.");
-        var folderRemoved = RemoveWorktree(repo, worktree, force: false);
+
+        string? switchedTo = null;
+        var folderLeftBehind = false;
+        if (worktree.IsMain)
+        {
+            if (Worktrees.CountChangedFiles(worktree.Path) is > 0 and var changes)
+                throw new OverworkedException($"{repo.Name} has {Plural.Of(changes, "uncommitted change")}. Commit or stash first.");
+            switchedTo = Branches.DefaultBranch(repo.Path);
+            Branches.Switch(worktree.Path, switchedTo, create: false);
+        }
+        else folderLeftBehind = !RemoveWorktree(repo, worktree, force: false);
+
         var branchDeleted = Branches.WasFullyPushed(repo.Path, branch);
         if (branchDeleted) Branches.Delete(repo.Path, branch);
-        return new CleanUpResult(folderRemoved, branchDeleted);
+        return new CleanUpResult(branchDeleted, folderLeftBehind, switchedTo);
     }
 
     /// <summary>Deletes empty folders under &lt;root&gt;/.worktrees: leftovers of worktrees removed while in use.</summary>
@@ -113,6 +127,34 @@ public sealed class Workspace(string root)
     string WorktreePath(string repoName, string branch) =>
         Path.Combine(WorktreesFolder, repoName, branch.Replace('/', '-').Replace('\\', '-'));
 
+    /// <summary>
+    /// Copies local files a new worktree needs but git doesn't carry, like appsettings.local.json or .vscode/: those in
+    /// the main folder that match <paramref name="include"/> (gitignore syntax) and that git ignores. Files the worktree
+    /// already has are left alone. No include file, nothing copied.
+    /// </summary>
+    /// <param name="include">
+    /// &lt;root&gt;/.worktrees/&lt;repo&gt;/.worktreeinclude: kept with the repo's worktrees rather than in the repo, so
+    /// nothing in the repo itself needs adding or ignoring.
+    /// </param>
+    static void CopyIncluded(string repoPath, string include, string worktreePath)
+    {
+        if (!File.Exists(include)) return;
+
+        // ponytail: walks every untracked folder, node_modules too: ~2s on a big repo, once per new worktree.
+        var wanted = Paths(Git.Run(repoPath, "ls-files", "-z", "--others", "--ignored", "--exclude-from=" + include));
+        // Whole ignored folders come back as one "folder/" entry each, which keeps this quick.
+        var ignored = Paths(Git.Run(repoPath, "ls-files", "-z", "--others", "--ignored", "--exclude-standard", "--directory"));
+        foreach (var file in wanted.Where(f => ignored.Any(i => i.EndsWith('/') ? f.StartsWith(i, StringComparison.Ordinal) : f == i)))
+        {
+            var target = Path.Combine(worktreePath, file);
+            if (File.Exists(target)) continue;
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            File.Copy(Path.Combine(repoPath, file), target);
+        }
+
+        static string[] Paths(string nulSeparated) => nulSeparated.Split('\0', StringSplitOptions.RemoveEmptyEntries);
+    }
+
     // A linked worktree has a .git *file*; only a main repo has a .git directory.
     static bool IsMainRepo(string folder) => Directory.Exists(Path.Combine(folder, ".git"));
 
@@ -122,18 +164,20 @@ public sealed class Workspace(string root)
         try
         {
             var tags = Tags.ByBranch(path);
-            var gone = Branches.Gone(path);
+            var tracking = Branches.Track(path);
             var worktrees = Worktrees.List(path)
                 .AsParallel().AsOrdered()
                 .Select(w =>
                 {
                     var tagged = w.Branch is null ? default : tags.GetValueOrDefault(w.Branch);
+                    var tracked = w.Branch is null ? default : tracking.GetValueOrDefault(w.Branch);
                     return w with
                     {
                         ChangedFiles = w.IsMissing ? 0 : Worktrees.CountChangedFiles(w.Path),
                         PullRequestUrl = tagged.PullRequestUrl,
                         TicketUrl = tagged.TicketUrl,
-                        BranchGone = w.Branch is not null && gone.Contains(w.Branch),
+                        BranchGone = tracked.Gone,
+                        UnpushedCommits = w.Branch is null || w.IsMissing ? 0 : Branches.CountUnpushed(path, w.Branch, tracked),
                     };
                 })
                 .ToList();

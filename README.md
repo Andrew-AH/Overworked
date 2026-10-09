@@ -15,9 +15,14 @@ what still has uncommitted work, which repos a ticket touches, and whether it ha
 Overworked shows every repo in one folder with its worktrees underneath, and keeps the list current as you work:
 
 - **Tickets in colour.** Tag a worktree with its ticket, and every repo working on that ticket shows it in the same colour.
+  Open all of a ticket's repos in one VS Code window, or add another repo to it in one step.
 - **Pull requests at a glance.** Tag it with its PR, and a pill links straight to it.
-- **Nothing lost.** Uncommitted work shows as "3 changed", and removing a worktree asks before throwing work away.
-- **Tidy after merging.** Once a PR is merged and its branch deleted on origin, its worktree gets a **Clean up** button.
+- **Nothing lost.** Uncommitted work shows as "3 changed" and commits origin doesn't have yet as "2 unpushed", and
+  removing a worktree asks before throwing work away.
+- **Tidy after merging.** Once a PR is merged and its branch deleted on origin, its worktree gets a **Clean up** button
+  (so does a repo whose own folder was left on that branch).
+- **Ready to run.** New worktrees get copies of your local, gitignored files, like `appsettings.local.json`, listed in
+  a `.worktreeinclude` that Overworked keeps outside the repo.
 - **One click** opens any worktree in VS Code, a terminal or your file browser.
 - **A command line, `ow`,** does the same things, for scripts and AI coding agents.
 
@@ -69,11 +74,12 @@ with its worktrees underneath, and the repos you have worktrees in sit at the to
 |---|---|
 | **Double-click** a row | open it in VS Code |
 | **+** on a repo | open any branch as a worktree, or type a new name to branch from `origin/main` |
-| **Right-click** a worktree | open it in VS Code, a folder or a terminal; copy its branch; tag it; remove it |
+| **Right-click** a worktree | open it in VS Code, a folder or a terminal; copy its branch; tag it; work with its ticket; remove it |
 | **Right-click** a repo | switch its branch, plus the same actions |
 | **Click** a tag | open the ticket or pull request |
-| **↻** at the top | rescan, and check origin for branches deleted there (opening the app does this too) |
+| **↻** at the top | rescan, and check origin for branches deleted there (opening the app does this too, and so does coming back to it after 15 minutes) |
 | **Clean up** on a worktree | remove it after its branch was deleted on origin, say by a squash merge |
+| **Clean up** on a repo | switch its own folder back to main after the branch it was on was deleted on origin |
 
 <table>
   <tr>
@@ -95,6 +101,8 @@ Right-click a row, choose **Tag ticket…** or **Tag pull request…**, and past
 - Ticket links can come from any company's Jira, cloud or self-hosted, or any tracker with keys like `PROJ-123`:
   the ticket's own page (`…/browse/PROJ-123`) or a board with it open (`…?selectedIssue=PROJ-123`).
 - Each ticket gets its own colour, shared by every row tagged with it.
+- A row with a ticket can **Open PROJ-123 in VS Code** (every repo on that ticket, in one window) or **Add a repo to
+  PROJ-123**, which opens the same branch in the repo you pick and tags it with the same ticket.
 - Deleting a branch drops its tags.
 
 ## Command line
@@ -110,6 +118,7 @@ ow branches <repo> [--fetch]         branches, newest first, and where each is c
 ow new <repo> <branch>               open a branch as a worktree (a new name branches from origin/main)
 ow switch <repo> <branch> [--create] switch a repo's own branch
 ow remove <repo> <branch> [--force]  remove a worktree; refuses if work would be lost unless --force
+ow cleanup [repo] [branch]           check origin, then clean up every branch deleted there (as Clean up does)
 ow pr <repo> <branch> <url>          tag a branch with its pull request
 ow ticket <repo> <branch> <url>      tag a branch with its ticket
 ```
@@ -123,7 +132,16 @@ Add `--json` to any command for output a script can read.
 - Removing a worktree keeps its branch. If VS Code or a terminal still has the folder open, the empty folder goes
   on a later refresh.
 - **Clean up** also deletes the worktree's local branch, but only if origin had every commit on it. If there's
-  anything newer, or it can't tell (the branch was pruned by some other fetch first), the branch stays.
+  anything newer, or it can't tell (the branch was pruned by some other fetch first), the branch stays. On a repo's
+  own folder it refuses while there are uncommitted changes.
+- A repo's `.worktreeinclude` lives with its worktrees, in `.worktrees/<repo>/.worktreeinclude` under your repos
+  folder, never in the repo itself. It uses `.gitignore` syntax, and a new worktree gets a copy of each file in the
+  repo's own folder that it matches and git ignores, for example:
+
+  ```
+  **/appsettings.local.json
+  .vscode/
+  ```
 - The Mac build is signed for the Mac that built it. To open a copy on another Mac, allow it under System Settings →
   Privacy & Security → Open Anyway.
 

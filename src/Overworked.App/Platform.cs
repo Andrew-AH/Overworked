@@ -5,8 +5,11 @@ namespace Overworked.App;
 /// <summary>The only place that knows Windows from Mac.</summary>
 static class Platform
 {
-    public static void OpenInCode(string path) =>
-        Start(OperatingSystem.IsWindows() ? ["cmd", "/c", "code", path] : ["open", "-a", "Visual Studio Code", path]);
+    public static void OpenInCode(string path) => OpenInCode([path]);
+
+    /// <summary>Several folders open together in one window, as a multi-root workspace.</summary>
+    public static void OpenInCode(IReadOnlyList<string> paths) =>
+        Start(OperatingSystem.IsWindows() ? ["cmd", "/c", "code", .. paths] : ["open", "-a", "Visual Studio Code", .. paths]);
 
     public static void OpenFolder(string path) =>
         Start(OperatingSystem.IsWindows() ? ["explorer", path] : ["open", path]);

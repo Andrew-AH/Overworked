@@ -28,9 +28,9 @@ public partial class MainWindow : Window
         Avalonia.Controls.Chrome.WindowDecorationProperties.SetElementRole(TitleBar, WindowDecorationsElementRole.TitleBar);
 
         RepoList.AddHandler(DoubleTappedEvent, Row_DoubleTapped, handledEventsToo: true);
-        // Opening the app checks origin for branches deleted there; coming back to it just rescans.
+        // Opening the app checks origin for branches deleted there; coming back to it rescans, and checks again if it's been a while.
         Opened += (_, _) => _ = _viewModel.RefreshAsync(fetch: true);
-        Activated += (_, _) => _ = _viewModel.RefreshAsync();
+        Activated += (_, _) => _ = _viewModel.CatchUpAsync();
         Closed += (_, _) => _viewModel.Dispose();
     }
 
@@ -66,6 +66,14 @@ public partial class MainWindow : Window
                     ("Tag pull request…", () => TagBranch(row, TagKind.PullRequest)),
                 }
                 : [],
+            .. row.HasTicket
+                ? new[]
+                {
+                    (row.OpenTicketText, (Action)(() => OpenTicketInCode(row))),
+                    (row.AddRepoToTicketText, () => AddRepoToTicket(row, anchor)),
+                }
+                : [],
+            .. row.IsGone ? new[] { ("Clean up", (Action)(() => _ = _viewModel.CleanUpAsync(row))) } : [],
         ],
         async choice => await _viewModel.SwitchBranchAsync(row, choice));
     }
@@ -98,12 +106,39 @@ public partial class MainWindow : Window
         if (confirmed) await _viewModel.RemoveWorktreeAsync(row, force: atRisk is not null);
     }
 
-    async void CleanUp_Click(object? sender, RoutedEventArgs e)
+    void AddRepoToTicket_Click(object? sender, RoutedEventArgs e)
     {
-        if (RowOf<WorktreeRow>(sender) is { } row) await _viewModel.CleanUpAsync(row);
+        if (RowOf<RowViewModel>(sender) is { } row) AddRepoToTicket(row, RowBorderFor(row));
     }
 
     // Any row
+
+    async void CleanUp_Click(object? sender, RoutedEventArgs e)
+    {
+        if (RowOf<RowViewModel>(sender) is { } row) await _viewModel.CleanUpAsync(row);
+    }
+
+    void OpenTicketInCode_Click(object? sender, RoutedEventArgs e)
+    {
+        if (RowOf<RowViewModel>(sender) is { } row) OpenTicketInCode(row);
+    }
+
+    /// <summary>Every checkout tagged with the row's ticket, across repos, in one VS Code window.</summary>
+    void OpenTicketInCode(RowViewModel row)
+    {
+        if (row.TicketKey is not { } key) return;
+        try { Platform.OpenInCode(_viewModel.TicketFolders(key)); }
+        catch (Exception e) { _viewModel.Status.ShowError(e.Message); }
+    }
+
+    /// <summary>Pick another repo to open the row's branch in too, tagged with the same ticket.</summary>
+    void AddRepoToTicket(RowViewModel row, Control anchor)
+    {
+        if (row.Branch is not { } branch) return;
+        var repos = _viewModel.ReposWithout(branch);
+        if (repos.Count == 0) _viewModel.Status.Show($"Every repo already has {branch} checked out");
+        else RepoMenu.ShowRepos(anchor, $"Open {branch} in", repos, async other => await _viewModel.AddRepoToTicketAsync(row, other));
+    }
 
     void Row_DoubleTapped(object? sender, TappedEventArgs e)
     {
@@ -169,6 +204,10 @@ public partial class MainWindow : Window
 
     /// <summary>The row's border around a control inside it.</summary>
     static Border RowBorderOf(Visual element) => element.GetVisualAncestors().OfType<Border>().First(b => b.Classes.Contains("row"));
+
+    /// <summary>A row's border, found from the row: for a context-menu item, which sits outside the row.</summary>
+    Border RowBorderFor(RowViewModel row) =>
+        RepoList.GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("row") && b.DataContext == row);
 
     /// <summary>The repo's name in its row; repo menus drop down from it.</summary>
     static TextBlock RepoNameIn(Visual row) => row.GetVisualDescendants().OfType<TextBlock>().First(t => t.Classes.Contains("reponame"));

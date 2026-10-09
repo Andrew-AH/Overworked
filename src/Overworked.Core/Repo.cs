@@ -11,6 +11,12 @@ public sealed record Repo(string Name, string Path, IReadOnlyList<Worktree> Work
     /// <summary>Its worktrees other than the main checkout.</summary>
     public IEnumerable<Worktree> Linked => Worktrees.Skip(1);
 
+    /// <summary>
+    /// Has branches of its own out that origin may have deleted: worktrees, or a main folder on something other than
+    /// main or master. Fetching these finds what <see cref="Workspace.CleanUp"/> can tidy away.
+    /// </summary>
+    public bool MayHaveGoneBranches => Linked.Any() || Main?.Branch is { } branch && branch is not ("main" or "master");
+
     // Records compare lists by reference. Compare the worktrees themselves, so a rescan that found nothing new
     // equals the last one.
     public bool Equals(Repo? other) =>

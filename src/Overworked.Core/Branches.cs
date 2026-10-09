@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace Overworked.Core;
 
 /// <summary>Listing, fetching and switching branches.</summary>
@@ -7,8 +9,11 @@ public static class Branches
     const string OriginPrefix = "refs/remotes/origin/";
 
     /// <summary>Where new branches start, whether made for a worktree or by switching: origin/main, or origin/master in repos without a main.</summary>
-    internal static string Base(string repoPath) =>
-        Git.Succeeds(repoPath, "show-ref", "--verify", "--quiet", OriginPrefix + "main") ? "origin/main" : "origin/master";
+    internal static string Base(string repoPath) => "origin/" + DefaultBranch(repoPath);
+
+    /// <summary>main, or master in repos without a main.</summary>
+    internal static string DefaultBranch(string repoPath) =>
+        Git.Succeeds(repoPath, "show-ref", "--verify", "--quiet", OriginPrefix + "main") ? "main" : "master";
 
     // git config: the last commit origin had of a branch, noted as its copy there was deleted.
     const string LastPushedSetting = "overworked-last-pushed";
@@ -20,18 +25,38 @@ public static class Branches
     /// </summary>
     public static void Fetch(string repoPath)
     {
-        var upstreams = Upstreams(repoPath);
+        var tracking = Track(repoPath);
         var before = OriginTips(repoPath);
         Git.Run(repoPath, "fetch", "origin", "--prune");
         var after = OriginTips(repoPath);
-        foreach (var (branch, upstream) in upstreams)
-            if (before.TryGetValue(upstream, out var lastTip) && !after.ContainsKey(upstream))
+        foreach (var (branch, state) in tracking)
+            if (state.Upstream is { } upstream && before.TryGetValue(upstream, out var lastTip) && !after.ContainsKey(upstream))
                 Git.Run(repoPath, "config", "--local", $"branch.{branch}.{LastPushedSetting}", lastTip);
     }
 
-    /// <summary>Local branches whose copy on origin was deleted. git reports them "[gone]" once a fetch has pruned it.</summary>
-    internal static IReadOnlySet<string> Gone(string repoPath) =>
-        ParseGone(Git.Run(repoPath, "for-each-ref", "--format=%(refname:short)%09%(upstream:track)", "refs/heads"));
+    /// <summary><see cref="Fetch"/> for several repos at once. What failed, one line per repo: "app: &lt;git's error&gt;".</summary>
+    public static IReadOnlyList<string> FetchAll(IEnumerable<Repo> repos) =>
+        repos.AsParallel()
+            .Select(repo =>
+            {
+                try { Fetch(repo.Path); return null; }
+                catch (OverworkedException e) { return $"{repo.Name}: {e.Message.Split('\n')[0]}"; }
+            })
+            .OfType<string>()
+            .ToList();
+
+    /// <summary>Each local branch's standing against its upstream, by name.</summary>
+    internal static IReadOnlyDictionary<string, Tracking> Track(string repoPath) =>
+        ParseTracking(Git.Run(repoPath, "for-each-ref", "--format=%(refname:short)%09%(upstream)%09%(upstream:track)", "refs/heads"));
+
+    /// <summary>
+    /// Commits on <paramref name="branch"/> that origin doesn't have: those ahead of its upstream, or for a branch never
+    /// pushed with -u, those on no remote branch. None for a branch deleted on origin; <see cref="WasFullyPushed"/> judges those.
+    /// </summary>
+    internal static int CountUnpushed(string repoPath, string branch, Tracking tracking) =>
+        tracking.Gone ? 0
+        : tracking.Upstream is not null ? tracking.Ahead
+        : int.Parse(Git.Run(repoPath, "rev-list", "--count", LocalPrefix + branch, "--not", "--remotes").Trim());
 
     /// <summary>Whether origin had every commit on <paramref name="branch"/> when its copy there was deleted.</summary>
     /// <returns>False when there's anything newer, or no note to tell by (it was deleted before Overworked fetched).</returns>
@@ -91,20 +116,21 @@ public static class Branches
         return [.. local, .. originOnly];
     }
 
-    /// <summary>`for-each-ref` lines of a branch and its upstream's state, tab-separated; "[gone]" when deleted on origin.</summary>
-    internal static IReadOnlySet<string> ParseGone(string forEachRef) =>
+    /// <summary>
+    /// `for-each-ref` lines of a branch, its upstream and how it stands against it, tab-separated: "[gone]" once a fetch
+    /// has pruned the upstream, "[ahead 2]", "[ahead 2, behind 3]", or nothing when level or there's no upstream.
+    /// </summary>
+    internal static Dictionary<string, Tracking> ParseTracking(string forEachRef) =>
         Git.Lines(forEachRef)
             .Select(line => line.Split('\t'))
-            .Where(fields => fields.Length > 1 && fields[1] == "[gone]")
-            .Select(fields => fields[0])
-            .ToHashSet();
-
-    /// <summary>Each local branch's upstream ref, for those that have one.</summary>
-    static Dictionary<string, string> Upstreams(string repoPath) =>
-        Git.Lines(Git.Run(repoPath, "for-each-ref", "--format=%(refname:short)%09%(upstream)", "refs/heads"))
-            .Select(line => line.Split('\t'))
-            .Where(fields => fields.Length > 1 && fields[1].Length > 0)
-            .ToDictionary(fields => fields[0], fields => fields[1]);
+            .ToDictionary(fields => fields[0], fields =>
+            {
+                var track = fields.Length > 2 ? fields[2] : "";
+                return new Tracking(
+                    Upstream: fields.Length > 1 && fields[1].Length > 0 ? fields[1] : null,
+                    Gone: track == "[gone]",
+                    Ahead: Regex.Match(track, @"ahead (\d+)") is { Success: true } ahead ? int.Parse(ahead.Groups[1].Value) : 0);
+            });
 
     /// <summary>The commit each of origin's branches is on, by ref.</summary>
     static Dictionary<string, string> OriginTips(string repoPath) =>
@@ -121,3 +147,9 @@ public static class Branches
             LastCommit: DateTimeOffset.FromUnixTimeSeconds(long.TryParse(fields[2], out var unix) ? unix : 0));
     }
 }
+
+/// <summary>How a local branch stands against its upstream (<see cref="Branches.Track"/>).</summary>
+/// <param name="Upstream">The ref it tracks, e.g. refs/remotes/origin/PROJ-1; null for a branch never pushed with -u.</param>
+/// <param name="Gone">Its upstream was deleted on origin, as when its pull request was merged.</param>
+/// <param name="Ahead">Commits it has that its upstream doesn't.</param>
+internal readonly record struct Tracking(string? Upstream, bool Gone, int Ahead);

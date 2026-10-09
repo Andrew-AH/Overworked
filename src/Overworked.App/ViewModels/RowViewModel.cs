@@ -27,13 +27,21 @@ public abstract class RowViewModel(Repo repo, RowColours colours) : ObservableOb
     /// <summary>The row's second line: its branch, or what's wrong.</summary>
     public virtual string Detail => IsMissing ? "folder is gone — remove to clean up" : Branch ?? "detached HEAD";
 
+    /// <summary>Its branch was deleted on origin, as when its pull request was merged; Clean up tidies it away.</summary>
+    public bool IsGone => Worktree?.BranchGone == true && !IsMissing;
+
     public bool IsDirty => Worktree?.ChangedFiles > 0;
     public string ChangesText => $"{Worktree?.ChangedFiles} changed";
+
+    public bool HasUnpushed => Worktree?.UnpushedCommits > 0;
+    public string UnpushedText => $"{Worktree?.UnpushedCommits} unpushed";
 
     public string? TicketUrl => Worktree?.TicketUrl;
     public string? TicketKey => Worktree?.TicketKey;
     public bool HasTicket => TicketKey is not null;
     public IBrush? TicketColour => colours.TicketColourFor(TicketKey);
+    public string OpenTicketText => $"Open {TicketKey} in VS Code";
+    public string AddRepoToTicketText => $"Add a repo to {TicketKey}…";
 
     public string? PullRequestUrl => Worktree?.PullRequestUrl;
     public bool HasPullRequest => PullRequestUrl is not null;

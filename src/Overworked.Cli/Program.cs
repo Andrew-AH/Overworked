@@ -12,6 +12,8 @@ const string Usage = """
     ow new <repo> <branch>               open a branch as a worktree (a new name branches from origin/main)
     ow switch <repo> <branch> [--create] switch the main folder's branch (--create: new branch from origin/main)
     ow remove <repo> <branch> [--force]  remove a worktree; refuses if work would be lost unless --force
+    ow cleanup [repo] [branch]           after merging: checks origin, then tidies every branch deleted there (worktree
+                                         removed, or main folder switched back to main; the branch too if origin had all of it)
     ow pr <repo> <branch> <url>          tag a worktree's branch with its pull request (the app shows it)
     ow ticket <repo> <branch> <url>      tag a worktree's branch with its ticket (the app shows its key, one colour per ticket)
 
@@ -113,6 +115,9 @@ try
             break;
         }
 
+        case ["cleanup", .. var target] when target.Length <= 2:
+            return CleanUp(target);
+
         case ["pr", var repoName, var name, var url]:
         {
             var (repo, branch) = TagBranch(repoName, name, TagKind.PullRequest, url);
@@ -148,9 +153,51 @@ void PrintRepo(Repo repo)
     foreach (var w in repo.Worktrees)
     {
         var state = w.IsMissing ? "missing"
-            : string.Join(", ", new[] { w.BranchGone ? "gone" : "", w.ChangedFiles > 0 ? $"{w.ChangedFiles} changed" : "" }.Where(s => s.Length > 0));
+            : string.Join(", ", new[]
+            {
+                w.BranchGone ? "gone" : "", w.ChangedFiles > 0 ? $"{w.ChangedFiles} changed" : "", w.UnpushedCommits > 0 ? $"{w.UnpushedCommits} unpushed" : "",
+            }.Where(s => s.Length > 0));
         Console.WriteLine($"  {(w.IsMain ? "*" : "-")} {w.Branch ?? "(detached)",-45} {state,-11} {w.TicketKey,-10} {(w.PullRequestUrl is null ? "" : "PR"),-2} {w.Path}");
     }
+}
+
+// Fetches first, so it knows what origin deleted, then cleans up each branch deleted there: all of them, a repo's, or
+// one. A refusal (uncommitted work) is reported and the rest go on; any failure makes the exit code 1.
+int CleanUp(string[] target)
+{
+    var workspace = OpenWorkspace();
+    var repos = target is [var repoName, ..]
+        ? [workspace.FindRepo(repoName)]
+        : workspace.LoadRepos().Where(r => r.MayHaveGoneBranches).ToList();
+    var failures = Branches.FetchAll(repos).Select(f => $"Couldn't check origin for {f}").ToList();
+    var cleaned = new List<object>();
+
+    foreach (var repo in repos.Select(r => workspace.LoadRepo(r.Name)))
+    {
+        var worktrees = target is [_, var name] ? [FindWorktree(repo, name)] : repo.Worktrees.Where(w => w.BranchGone && !w.IsMissing).ToList();
+        foreach (var worktree in worktrees)
+        {
+            try
+            {
+                var result = workspace.CleanUp(repo, worktree);
+                cleaned.Add(new
+                {
+                    repo = repo.Name, branch = worktree.Branch, path = worktree.Path,
+                    branchDeleted = result.BranchDeleted, folderLeftBehind = result.FolderLeftBehind, switchedTo = result.SwitchedTo,
+                });
+                if (!json) Console.WriteLine($"Cleaned up {repo.Name} {worktree.Branch}: {result.Describe()}");
+            }
+            catch (OverworkedException e) { failures.Add($"{repo.Name} {worktree.Branch}: {e.Message}"); }
+        }
+    }
+
+    if (json) Console.WriteLine(JsonSerializer.Serialize(new { cleanedUp = cleaned, failed = failures }, jsonOptions));
+    else
+    {
+        foreach (var failure in failures) Console.Error.WriteLine(failure);
+        if (cleaned.Count == 0 && failures.Count == 0) Console.WriteLine("Nothing to clean up: no branch you have checked out was deleted on origin.");
+    }
+    return failures.Count > 0 ? 1 : 0;
 }
 
 // The app records where it lives each time it starts, so this can open it from anywhere.

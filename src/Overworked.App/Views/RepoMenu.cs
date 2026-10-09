@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Media;
 using Overworked.App.ViewModels;
 using Overworked.Core;
 
@@ -53,6 +54,32 @@ static class RepoMenu
         flyout.Content = new BranchPicker(flyout, "New worktree", repoPath, exclude: null, listHeight, listOpen: true, onPick)
         {
             Width = MenuWidth,
+        };
+        flyout.ShowAt(anchor);
+    }
+
+    /// <summary>Pick a repo from a list, e.g. one to open a ticket's branch in too.</summary>
+    public static void ShowRepos(Control anchor, string heading, IReadOnlyList<Repo> repos, Action<Repo> onPick)
+    {
+        var (flyout, listHeight) = NewFlyout(anchor);
+        var list = new StackPanel();
+        foreach (var repo in repos)
+        {
+            var item = new Button { Content = repo.Name, Classes = { "menuitem" } };
+            item.Click += (_, _) => { flyout.Hide(); onPick(repo); };
+            list.Children.Add(item);
+        }
+        flyout.Content = new StackPanel
+        {
+            Width = MenuWidth,
+            Children =
+            {
+                new TextBlock
+                {
+                    Text = heading, Classes = { "muted" }, FontSize = 11.5, FontWeight = FontWeight.SemiBold, Margin = new Thickness(8, 2, 0, 7),
+                },
+                new ScrollViewer { MaxHeight = listHeight, Content = list },
+            },
         };
         flyout.ShowAt(anchor);
     }

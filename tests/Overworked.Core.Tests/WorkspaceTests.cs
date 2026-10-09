@@ -226,8 +226,8 @@ public sealed class WorkspaceTests : IDisposable
         var repo = workspace.LoadRepo("app");
         Assert.All(repo.Linked, w => Assert.True(w.BranchGone));
 
-        Assert.Equal(new CleanUpResult(FolderRemoved: true, BranchDeleted: true), workspace.CleanUp(repo, repo.Linked.Single(w => w.Branch == "feature-a")));
-        Assert.Equal(new CleanUpResult(FolderRemoved: true, BranchDeleted: false), workspace.CleanUp(repo, repo.Linked.Single(w => w.Branch == "feature-b")));
+        Assert.Equal(new CleanUpResult(BranchDeleted: true), workspace.CleanUp(repo, repo.Linked.Single(w => w.Branch == "feature-a")));
+        Assert.Equal(new CleanUpResult(BranchDeleted: false), workspace.CleanUp(repo, repo.Linked.Single(w => w.Branch == "feature-b")));
 
         Assert.Empty(workspace.LoadRepo("app").Linked);
         Assert.False(Git.Succeeds(app, "show-ref", "--verify", "--quiet", "refs/heads/feature-a")); // all on origin: gone
@@ -252,9 +252,85 @@ public sealed class WorkspaceTests : IDisposable
 
         Assert.Throws<OverworkedException>(() => workspace.CleanUp(repo, Linked("feature-c"))); // uncommitted work
         Assert.True(Directory.Exists(dirty.Path));
-        Assert.Equal(new CleanUpResult(FolderRemoved: true, BranchDeleted: false), workspace.CleanUp(repo, Linked("feature-d")));
+        Assert.Equal(new CleanUpResult(BranchDeleted: false), workspace.CleanUp(repo, Linked("feature-d")));
         Assert.True(Git.Succeeds(app, "show-ref", "--verify", "--quiet", "refs/heads/feature-d")); // can't tell: kept
         Assert.Throws<OverworkedException>(() => workspace.CleanUp(repo, Linked("feature-e")));  // still on origin
+    }
+
+    [Fact]
+    public void Cleaning_up_the_main_folder_switches_it_back_to_main()
+    {
+        var root = NewRoot();
+        var app = CloneWithOneCommit(root, "app");
+        var workspace = new Workspace(root);
+        Branches.Switch(app, "feature-f", create: true);
+        CommitFile(app, "f.txt", "work on feature-f");
+        Git.Run(app, "push", "-q", "-u", "origin", "feature-f");
+        DeleteOnOrigin("app", "feature-f");
+        Branches.Fetch(app);
+        File.WriteAllText(Path.Combine(app, "wip.txt"), "x");
+
+        var main = workspace.LoadRepo("app").Main!;
+        Assert.True(main.BranchGone);
+        Assert.Throws<OverworkedException>(() => workspace.CleanUp(workspace.LoadRepo("app"), main)); // uncommitted work
+        File.Delete(Path.Combine(app, "wip.txt"));
+
+        Assert.Equal(new CleanUpResult(BranchDeleted: true, SwitchedTo: "main"), workspace.CleanUp(workspace.LoadRepo("app"), main));
+        Assert.Equal("main", Git.Run(app, "branch", "--show-current").Trim());
+        Assert.False(Git.Succeeds(app, "show-ref", "--verify", "--quiet", "refs/heads/feature-f"));
+    }
+
+    [Fact]
+    public void Counts_commits_origin_does_not_have_yet()
+    {
+        var root = NewRoot();
+        CloneWithOneCommit(root, "app");
+        var workspace = new Workspace(root);
+        var worktree = workspace.CreateWorktree(workspace.LoadRepo("app"), "PROJ-15");
+        int Unpushed() => workspace.LoadRepo("app").Linked.Single().UnpushedCommits;
+
+        Assert.Equal(0, Unpushed()); // a new branch is just origin/main so far
+        CommitFile(worktree.Path, "a.txt", "one");
+        CommitFile(worktree.Path, "b.txt", "two");
+        Assert.Equal(2, Unpushed()); // never pushed: no upstream to compare with
+        Git.Run(worktree.Path, "push", "-q", "-u", "origin", "PROJ-15");
+        Assert.Equal(0, Unpushed());
+        CommitFile(worktree.Path, "c.txt", "three");
+        Assert.Equal(1, Unpushed()); // ahead of its upstream
+        Assert.Equal(0, workspace.LoadRepo("app").Main!.UnpushedCommits);
+    }
+
+    [Fact]
+    public void Copies_ignored_files_named_in_worktreeinclude_into_a_new_worktree()
+    {
+        var root = NewRoot();
+        var app = CloneWithOneCommit(root, "app");
+        File.WriteAllText(Path.Combine(app, ".gitignore"), "*.local.json\n.vscode/\nbin/\n");
+        Git.Run(app, "add", ".gitignore");
+        Commit(app, "ignore local files");
+        Git.Run(app, "push", "-q", "origin", "main");
+        Write("Svc/appsettings.local.json", "secrets");
+        Write(".vscode/settings.json", "{}");
+        Write("Svc/bin/app.dll", "build output");
+        Write("notes.json", "untracked, but not ignored");
+        // Kept with the repo's worktrees, not in the repo.
+        Directory.CreateDirectory(Path.Combine(root, ".worktrees", "app"));
+        File.WriteAllText(Path.Combine(root, ".worktrees", "app", ".worktreeinclude"), "**/appsettings.local.json\n.vscode/\n*.json\n");
+        var workspace = new Workspace(root);
+
+        var worktree = workspace.CreateWorktree(workspace.LoadRepo("app"), "PROJ-16");
+
+        Assert.Equal("secrets", File.ReadAllText(Path.Combine(worktree.Path, "Svc", "appsettings.local.json")));
+        Assert.True(File.Exists(Path.Combine(worktree.Path, ".vscode", "settings.json")));
+        Assert.False(File.Exists(Path.Combine(worktree.Path, "Svc", "bin", "app.dll"))); // ignored, but not asked for
+        Assert.False(File.Exists(Path.Combine(worktree.Path, "notes.json")));            // asked for, but not ignored
+        Assert.Equal(0, workspace.LoadRepo("app").Linked.Single().ChangedFiles);         // copies stay ignored there
+
+        void Write(string file, string text)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.Combine(app, file))!);
+            File.WriteAllText(Path.Combine(app, file), text);
+        }
     }
 
     [Fact]

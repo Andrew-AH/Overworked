@@ -118,7 +118,7 @@
     <Style Selector="Button.ticket">
       <Setter Property="Foreground" Value="#15171C" />
     </Style>
-    <!-- an action rather than a link: outlined, on a worktree whose branch was deleted on origin -->
+    <!-- an action rather than a link: outlined, on a row whose branch was deleted on origin -->
     <Style Selector="Button.cleanup">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="Foreground" Value="{DynamicResource Text}" />

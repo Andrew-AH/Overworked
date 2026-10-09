@@ -17,13 +17,14 @@ sealed record RepoJson(string Name, string Path, IReadOnlyList<WorktreeJson> Wor
 /// <param name="PullRequest">The pull request link its branch is tagged with.</param>
 /// <param name="Ticket">The ticket link its branch is tagged with.</param>
 /// <param name="BranchGone">Its branch was deleted on origin (known after a fetch), as when its PR was merged.</param>
+/// <param name="Unpushed">Commits on its branch that origin doesn't have yet.</param>
 sealed record WorktreeJson(
     string Path, string? Branch, bool IsMain, bool IsMissing, int Changes, string? PullRequest, string Name, string? Ticket,
-    bool BranchGone)
+    bool BranchGone, int Unpushed)
 {
     public static WorktreeJson From(Worktree worktree) => new(worktree.Path, worktree.Branch, worktree.IsMain,
         worktree.IsMissing, worktree.ChangedFiles, worktree.PullRequestUrl, worktree.FolderName, worktree.TicketUrl,
-        worktree.BranchGone);
+        worktree.BranchGone, worktree.UnpushedCommits);
 }
 
 sealed record BranchJson(string Name, bool IsRemote, string? CheckedOutAt, DateTimeOffset LastCommit)

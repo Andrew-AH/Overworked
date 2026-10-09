@@ -105,10 +105,15 @@
                     </StackPanel>
                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,0,2,0">
                       <TextBlock Text="{Binding ChangesText}" Classes="mono dirty" Margin="8,10,0,0" IsVisible="{Binding IsDirty}" />
+                      <TextBlock Text="{Binding UnpushedText}" Classes="mono dirty" Margin="8,10,0,0" IsVisible="{Binding HasUnpushed}"
+                                 ToolTip.Tip="Commits origin doesn't have yet" />
                       <Button Classes="tag ticket" Content="{Binding TicketKey}" Background="{Binding TicketColour}" ToolTip.Tip="{Binding TicketUrl}"
                               Click="OpenTicket_Click" Margin="8,6,0,0" VerticalAlignment="Top" IsVisible="{Binding HasTicket}" />
                       <Button Classes="tag pr" Content="{Binding PullRequestText}" ToolTip.Tip="{Binding PullRequestUrl}" Click="OpenPullRequest_Click"
                               Margin="8,6,0,0" VerticalAlignment="Top" IsVisible="{Binding HasPullRequest}" />
+                      <Button Classes="tag cleanup" Content="Clean up" Click="CleanUp_Click" IsVisible="{Binding IsGone}"
+                              ToolTip.Tip="Switch back to main, and delete this branch too if origin had all of it"
+                              Margin="8,6,0,0" VerticalAlignment="Top" />
                     </StackPanel>
                     <Button Grid.Column="3" Classes="icon add" Click="NewWorktree_Click" ToolTip.Tip="New worktree"
                             VerticalAlignment="Top" Margin="2,5,4,0">
@@ -138,6 +143,8 @@
                             <MenuItem Header="Copy branch name" Click="CopyBranch_Click" IsVisible="{Binding HasBranch}" />
                             <MenuItem Header="Tag ticket…" Click="TagTicket_Click" IsVisible="{Binding HasBranch}" />
                             <MenuItem Header="Tag pull request…" Click="TagPullRequest_Click" IsVisible="{Binding HasBranch}" />
+                            <MenuItem Header="{Binding OpenTicketText}" Click="OpenTicketInCode_Click" IsVisible="{Binding HasTicket}" />
+                            <MenuItem Header="{Binding AddRepoToTicketText}" Click="AddRepoToTicket_Click" IsVisible="{Binding HasTicket}" />
                             <Separator />
                             <MenuItem Header="Clean up" Click="CleanUp_Click" IsVisible="{Binding IsGone}" />
                             <MenuItem Header="Remove worktree…" Click="RemoveWorktree_Click" />
@@ -163,6 +170,8 @@
                           </StackPanel>
                           <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,0,10,0">
                             <TextBlock Text="{Binding ChangesText}" Classes="mono dirty" Margin="8,10,0,0" IsVisible="{Binding IsDirty}" />
+                            <TextBlock Text="{Binding UnpushedText}" Classes="mono dirty" Margin="8,10,0,0" IsVisible="{Binding HasUnpushed}"
+                                       ToolTip.Tip="Commits origin doesn't have yet" />
                             <Button Classes="tag ticket" Content="{Binding TicketKey}" Background="{Binding TicketColour}" ToolTip.Tip="{Binding TicketUrl}"
                                     Click="OpenTicket_Click" Margin="8,5,0,0" VerticalAlignment="Top" IsVisible="{Binding HasTicket}" />
                             <Button Classes="tag pr" Content="{Binding PullRequestText}" ToolTip.Tip="{Binding PullRequestUrl}" Click="OpenPullRequest_Click"

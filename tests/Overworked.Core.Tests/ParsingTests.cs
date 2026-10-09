@@ -43,11 +43,22 @@ public sealed class ParsingTests
     }
 
     [Fact]
-    public void Finds_branches_whose_copy_on_origin_is_gone()
+    public void Reads_how_each_branch_stands_against_origin()
     {
-        var gone = Branches.ParseGone("main\t\nfeature-a\t[gone]\nfeature-b\t[ahead 1]\nfeature/c\t[gone]\nlocal-only\t\n");
+        var tracking = Branches.ParseTracking(
+            "main\trefs/remotes/origin/main\t\n" +
+            "feature-a\trefs/remotes/origin/feature-a\t[gone]\n" +
+            "feature-b\trefs/remotes/origin/feature-b\t[ahead 1]\n" +
+            "feature/c\trefs/remotes/origin/feature/c\t[ahead 12, behind 3]\n" +
+            "feature-d\trefs/remotes/origin/feature-d\t[behind 2]\n" +
+            "local-only\t\t\n");
 
-        Assert.Equal(new[] { "feature-a", "feature/c" }, gone.Order());
+        Assert.Equal(new Tracking("refs/remotes/origin/main", Gone: false, Ahead: 0), tracking["main"]);
+        Assert.Equal(new Tracking("refs/remotes/origin/feature-a", Gone: true, Ahead: 0), tracking["feature-a"]);
+        Assert.Equal(1, tracking["feature-b"].Ahead);
+        Assert.Equal(12, tracking["feature/c"].Ahead);
+        Assert.Equal(0, tracking["feature-d"].Ahead);
+        Assert.Equal(new Tracking(null, Gone: false, Ahead: 0), tracking["local-only"]);
     }
 
     [Fact]

@@ -6,7 +6,7 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>ow</ToolCommandName>
     <PackageId>Overworked.Cli</PackageId>
-    <Version>0.5.2</Version>
+    <Version>0.6.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

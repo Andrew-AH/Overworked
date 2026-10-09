@@ -14,9 +14,6 @@ public sealed class WorktreeRow(Repo repo, Worktree worktree, RowColours colours
     /// <summary>The last worktree's lane line stops at its own dot.</summary>
     public bool IsLast { get; } = isLast;
 
-    /// <summary>Its branch was deleted on origin, as when its pull request was merged; Clean up removes it.</summary>
-    public bool IsGone => Worktree.BranchGone && !IsMissing;
-
     public override string Detail => IsGone ? "branch deleted on origin" : base.Detail;
 
     /// <summary>A worktree row is its branch already; only something to act on earns it a second line.</summary>
