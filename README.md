@@ -125,6 +125,15 @@ ow ticket <repo> <branch> <url>      tag a branch with its ticket
 
 Add `--json` to any command for output a script can read.
 
+For Claude Code, [`.claude/skills`](.claude/skills) has three skills built on `ow`. They load in this repo; to use them
+in every repo, copy their folders into `~/.claude/skills`.
+
+- **managing-worktrees** does worktree work through `ow` rather than raw `git worktree`.
+- **/jira** writes and creates a Jira ticket (or takes an existing one), opens a worktree for it in each repo you
+  pick, and tags them with the ticket.
+- **/pr** opens a GitHub pull request with a short Summary and Changes, using the branch's ticket tag, and tags the
+  branch with the PR.
+
 ## Good to know
 
 - Git is the source of truth. Overworked only remembers your repos folder (`%APPDATA%\Overworked\config.json` on
