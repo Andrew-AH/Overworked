@@ -1,17 +1,25 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
+using Overworked.Core;
 
 namespace Overworked.App;
 
 /// <summary>The only place that knows Windows from Mac.</summary>
 static class Platform
 {
+    /// <summary>The editor rows open in, for menus: "VS Code" unless config.json's "Editor" names another.</summary>
+    public static string EditorName => Config.LoadEditor() ?? "VS Code";
+
+    // As config.json's "Editor" names it: the command on Windows (through cmd, as code and cursor are .cmd shims), the
+    // app's name on macOS (for `open -a`, which needs no shell command installed).
+    static string Editor => Config.LoadEditor() ?? (OperatingSystem.IsWindows() ? "code" : "Visual Studio Code");
+
     public static void OpenInCode(string path) => OpenInCode([path]);
 
     /// <summary>Several folders open together in one window, as a multi-root workspace.</summary>
     public static void OpenInCode(IReadOnlyList<string> paths) =>
-        Start(OperatingSystem.IsWindows() ? ["cmd", "/c", "code", .. paths] : ["open", "-a", "Visual Studio Code", .. paths]);
+        Start(OperatingSystem.IsWindows() ? ["cmd", "/c", Editor, .. paths] : ["open", "-a", Editor, .. paths]);
 
     public static void OpenFolder(string path) =>
         Start(OperatingSystem.IsWindows() ? ["explorer", path] : ["open", path]);

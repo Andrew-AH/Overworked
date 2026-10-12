@@ -126,7 +126,7 @@
                       <Button Classes="tag pr" Content="{Binding PullRequestText}" ToolTip.Tip="{Binding PullRequestUrl}" Click="OpenPullRequest_Click"
                               Margin="8,6,0,0" VerticalAlignment="Top" IsVisible="{Binding HasPullRequest}" />
                       <Button Classes="tag cleanup" Content="Clean up" Click="CleanUp_Click" IsVisible="{Binding CanCleanUp}"
-                              ToolTip.Tip="Switch back to main, and delete this branch too if origin had all of it"
+                              ToolTip.Tip="{Binding CleanUpTip}"
                               Margin="8,6,0,0" VerticalAlignment="Top" />
                       <Border Classes="busy" IsVisible="{Binding IsBusy}" Margin="8,6,0,0" VerticalAlignment="Top">
                         <StackPanel Orientation="Horizontal" Spacing="5">
@@ -157,7 +157,7 @@
                       <Border Classes="row">
                         <Border.ContextMenu>
                           <ContextMenu>
-                            <MenuItem Header="Open in VS Code" Click="OpenInCode_Click" />
+                            <MenuItem Header="{Binding OpenInEditorText}" Click="OpenInCode_Click" />
                             <MenuItem Header="Open folder" Click="OpenFolder_Click" />
                             <MenuItem Header="Open terminal" Click="OpenTerminal_Click" />
                             <MenuItem Header="Copy branch name" Click="CopyBranch_Click" IsVisible="{Binding HasBranch}" />

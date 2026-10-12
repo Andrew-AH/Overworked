@@ -23,7 +23,7 @@ Overworked shows every repo in one folder with its worktrees underneath, and kee
   (so does a repo whose own folder was left on that branch).
 - **Ready to run.** New worktrees get copies of your local, gitignored files, like `appsettings.local.json`, listed in
   a `.worktreeinclude` that Overworked keeps outside the repo.
-- **One click** opens any worktree in VS Code, a terminal or your file browser.
+- **One click** opens any worktree in your editor (VS Code unless you say otherwise), a terminal or your file browser.
 - **A command line, `ow`,** does the same things, for scripts and AI coding agents.
 
 ## Get started
@@ -76,14 +76,14 @@ with its worktrees underneath, and the repos you have worktrees in sit at the to
 
 | Do this | To |
 |---|---|
-| **Double-click** a row | open it in VS Code |
-| **+** on a repo | open any branch as a worktree, or type a new name to branch from `origin/main` |
+| **Double-click** a row | open it in your editor |
+| **+** on a repo | open any branch as a worktree, or type a new name to branch from origin's default branch (main, develop…) |
 | **Right-click** a worktree | open it in VS Code, a folder or a terminal; copy its branch; tag it; work with its ticket; remove it (closing VS Code on it) |
 | **Right-click** a repo | switch its branch, plus the same actions |
 | **Click** a tag | open the ticket or pull request |
 | **↻** at the top | rescan, and check origin for branches deleted there; it spins while that runs (opening the app does this too, and it runs by itself every minute) |
 | **Clean up** on a worktree | remove it after its branch was deleted on origin, say by a squash merge, closing VS Code on it first |
-| **Clean up** on a repo | switch its own folder back to main after the branch it was on was deleted on origin |
+| **Clean up** on a repo | switch its own folder back to its default branch after the branch it was on was deleted on origin |
 
 <table>
   <tr>
@@ -105,6 +105,9 @@ Right-click a row, choose **Tag ticket…** or **Tag pull request…**, and past
 - Ticket links can come from any company's Jira, cloud or self-hosted, or any tracker with keys like `PROJ-123`:
   the ticket's own page (`…/browse/PROJ-123`) or a board with it open (`…?selectedIssue=PROJ-123`).
 - Each ticket gets its own colour, shared by every row tagged with it.
+- Once one ticket of a project is tagged, a new worktree whose branch starts with that project's key, like
+  `proj-124-add-refunds`, is tagged with its ticket by itself, and **Tag ticket…** suggests the link. A branch like
+  `fix-3-typo` is left alone until a FIX ticket has been tagged by hand, so it can't become a ticket that isn't one.
 - A row with a ticket can **Open PROJ-123 in VS Code** (every repo on that ticket, in one window) or **Add a repo to
   PROJ-123**, which opens the same branch in the repo you pick and tags it with the same ticket.
 - Deleting a branch drops its tags.
@@ -119,7 +122,7 @@ ow root [folder]                     show or set the folder that holds your repo
 ow list [repo]                       repos and their worktrees
 ow path <repo> [branch]              folder of a repo, or of a branch's worktree
 ow branches <repo> [--fetch]         branches, newest first, and where each is checked out
-ow new <repo> <branch>               open a branch as a worktree (a new name branches from origin/main)
+ow new <repo> <branch>               open a branch as a worktree (a new name branches from origin's default branch)
 ow switch <repo> <branch> [--create] switch a repo's own branch
 ow remove <repo> <branch> [--force]  remove a worktree; refuses if work would be lost unless --force
 ow cleanup [repo] [branch]           check origin, then clean up every branch deleted there (as Clean up does)
@@ -142,7 +145,10 @@ in every repo, copy their folders into `~/.claude/skills`.
 
 - Git is the source of truth. Overworked only remembers your repos folder (`%APPDATA%\Overworked\config.json` on
   Windows, `~/.config/Overworked/config.json` on macOS), and tags live in each repo's own git config.
-- Removing a worktree keeps its branch. If VS Code or a terminal still has the folder open, the empty folder goes
+- To open rows in another editor, add `"Editor"` to that config.json: on Windows the command (`"cursor"`, `"zed"`), on
+  macOS the app's name (`"Cursor"`, `"Zed"`, `"Rider"`). The menus then say Open in that. Clean up still closes VS Code
+  windows only.
+- Removing a worktree keeps its branch. If an editor or a terminal still has the folder open, the empty folder goes
   on a later refresh.
 - **Clean up** also deletes the worktree's local branch, but only if origin had every commit on it. If there's
   anything newer, or it can't tell (the branch was pruned by some other fetch first), the branch stays. On a repo's

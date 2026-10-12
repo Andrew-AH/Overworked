@@ -9,11 +9,11 @@ const string Usage = """
     ow list [repo]                       repos and their worktrees (one repo is faster)
     ow path <repo> [branch]              folder of the main checkout, or of a branch's worktree
     ow branches <repo> [--fetch]         branches, newest first, and where each is checked out
-    ow new <repo> <branch>               open a branch as a worktree (a new name branches from origin/main)
-    ow switch <repo> <branch> [--create] switch the main folder's branch (--create: new branch from origin/main)
+    ow new <repo> <branch>               open a branch as a worktree (a new name branches from origin's default branch)
+    ow switch <repo> <branch> [--create] switch the main folder's branch (--create: new branch from origin's default branch)
     ow remove <repo> <branch> [--force]  remove a worktree; refuses if work would be lost unless --force
     ow cleanup [repo] [branch]           after merging: checks origin, then tidies every branch deleted there (worktree
-                                         removed, or main folder switched back to main; the branch too if origin had all of it)
+                                         removed, or main folder switched back to the default branch; the branch too if origin had all of it)
     ow pr <repo> <branch> <url>          tag a worktree's branch with its pull request (the app shows it)
     ow ticket <repo> <branch> <url>      tag a worktree's branch with its ticket (the app shows its key, one colour per ticket)
 
@@ -111,7 +111,7 @@ try
             var folderGone = workspace.RemoveWorktree(repo, worktree, force);
             Print(new { removed = worktree.Path, branch = worktree.Branch, folderLeftBehind = !folderGone },
                 folderGone ? $"Removed {worktree.Path}"
-                    : $"Removed {worktree.Path}. Its empty folder stays until whatever has it open (VS Code, a terminal) closes; Overworked deletes it then.");
+                    : $"Removed {worktree.Path}. Its empty folder stays until whatever has it open (an editor, a terminal) closes; Overworked deletes it then.");
             break;
         }
 

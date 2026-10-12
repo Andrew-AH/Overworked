@@ -2,7 +2,7 @@ using Overworked.Core;
 
 namespace Overworked.App.ViewModels;
 
-/// <summary>A branch the user picked: an existing one, or a new name to create from origin/main.</summary>
+/// <summary>A branch the user picked: an existing one, or a new name to create from origin's default branch.</summary>
 public sealed record BranchChoice(string Name, bool Create);
 
 /// <summary>A row in a branch picker.</summary>
@@ -27,8 +27,9 @@ public static class BranchSearch
     /// </summary>
     /// <param name="exclude">A branch to leave out: the one already checked out, when switching.</param>
     /// <param name="mainFolder">The repo's own folder, to tell its branch apart from a worktree's.</param>
+    /// <param name="defaultBranch">Origin's default branch, which a new branch is created from.</param>
     public static List<BranchOption> Filter(IReadOnlyList<BranchRef> branches, string query, string? exclude,
-        string mainFolder, DateTimeOffset now)
+        string mainFolder, DateTimeOffset now, string defaultBranch = "main")
     {
         var options = branches
             .Where(b => b.Name != exclude)
@@ -39,7 +40,7 @@ public static class BranchSearch
             .Select(x => x.Option)
             .ToList();
         if (query.Length > 0 && !branches.Any(b => b.Name.Equals(query, StringComparison.OrdinalIgnoreCase)))
-            options.Add(new BranchOption(query, "from main", "New branch from origin/main", CanPick: true, IsNew: true));
+            options.Add(new BranchOption(query, $"from {defaultBranch}", $"New branch from origin/{defaultBranch}", CanPick: true, IsNew: true));
         return options;
     }
 

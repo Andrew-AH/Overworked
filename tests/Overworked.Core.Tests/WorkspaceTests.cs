@@ -352,6 +352,7 @@ public sealed class WorkspaceTests : IDisposable
     {
         var root = NewRoot();
         var app = CloneWithOneCommit(root, "app", defaultBranch: "master");
+        Git.Run(app, "remote", "set-head", "origin", "-d"); // no record of origin's HEAD (git init, then remote add): guessed
         var workspace = new Workspace(root);
 
         workspace.CreateWorktree(workspace.LoadRepo("app"), "PROJ-13");
@@ -359,6 +360,84 @@ public sealed class WorkspaceTests : IDisposable
 
         Assert.Equal(Git.Run(app, "rev-parse", "origin/master"), Git.Run(app, "rev-parse", "PROJ-13"));
         Assert.Equal(Git.Run(app, "rev-parse", "origin/master"), Git.Run(app, "rev-parse", "PROJ-14"));
+    }
+
+    [Fact]
+    public void Branches_from_origins_default_branch_whatever_its_name()
+    {
+        var root = NewRoot();
+        var app = CloneWithOneCommit(root, "app", defaultBranch: "develop");
+        var workspace = new Workspace(root);
+
+        var repo = workspace.LoadRepo("app");
+        Assert.Equal("develop", repo.DefaultBranch);
+        Assert.False(repo.MayHaveGoneBranches); // its own folder on develop is at rest, not a branch out
+        workspace.CreateWorktree(repo, "PROJ-17");
+        Branches.Switch(app, "PROJ-18", create: true);
+        Assert.Equal(Git.Run(app, "rev-parse", "origin/develop"), Git.Run(app, "rev-parse", "PROJ-17"));
+        Assert.Equal(Git.Run(app, "rev-parse", "origin/develop"), Git.Run(app, "rev-parse", "PROJ-18"));
+
+        // Clean up returns the repo's own folder to develop, not main.
+        CommitFile(app, "18.txt", "work on PROJ-18");
+        Git.Run(app, "push", "-q", "-u", "origin", "PROJ-18");
+        DeleteOnOrigin("app", "PROJ-18");
+        Branches.Fetch(app);
+        Assert.Equal(new CleanUpResult(BranchDeleted: true, SwitchedTo: "develop"),
+            workspace.CleanUp(workspace.LoadRepo("app"), workspace.LoadRepo("app").Main!));
+        Assert.Equal("develop", Git.Run(app, "branch", "--show-current").Trim());
+    }
+
+    [Fact]
+    public void A_branch_pushed_without_tracking_is_tracked_after_a_fetch_so_its_merge_still_shows()
+    {
+        var root = NewRoot();
+        var app = CloneWithOneCommit(root, "app");
+        var workspace = new Workspace(root);
+        var g = workspace.CreateWorktree(workspace.LoadRepo("app"), "feature-g");
+        var h = workspace.CreateWorktree(workspace.LoadRepo("app"), "feature-h");
+        CommitFile(g.Path, "g.txt", "work on feature-g");
+        CommitFile(h.Path, "h.txt", "work on feature-h");
+        Git.Run(g.Path, "push", "-q", "origin", "feature-g"); // a plain push, no -u: git doesn't track origin's copy
+        Git.Run(h.Path, "push", "-q", "origin", "feature-h");
+        Assert.False(Git.Succeeds(app, "rev-parse", "--abbrev-ref", "feature-g@{upstream}"));
+        DeleteOnOrigin("app", "feature-h"); // merged before any fetch saw it on origin
+
+        Branches.Fetch(app);
+
+        Assert.Equal("origin/feature-g", Git.Run(app, "rev-parse", "--abbrev-ref", "feature-g@{upstream}").Trim());
+        var repo = workspace.LoadRepo("app");
+        Worktree Linked(string branch) => repo.Linked.Single(w => w.Branch == branch);
+        Assert.Equal((false, 0), (Linked("feature-g").BranchGone, Linked("feature-g").UnpushedCommits));
+        Assert.True(Linked("feature-h").BranchGone);
+        Assert.Equal(new CleanUpResult(BranchDeleted: true), workspace.CleanUp(repo, Linked("feature-h"))); // origin had all of it
+
+        DeleteOnOrigin("app", "feature-g");
+        Branches.Fetch(app);
+        repo = workspace.LoadRepo("app");
+        Assert.True(Linked("feature-g").BranchGone);
+        Assert.Equal(new CleanUpResult(BranchDeleted: true), workspace.CleanUp(repo, Linked("feature-g")));
+    }
+
+    [Fact]
+    public void A_new_branch_named_after_a_ticket_is_tagged_with_it_once_its_project_is_known()
+    {
+        var root = NewRoot();
+        var app = CloneWithOneCommit(root, "app");
+        CloneWithOneCommit(root, "other");
+        var workspace = new Workspace(root);
+        Worktree Open(string repo, string branch) => workspace.CreateWorktree(workspace.LoadRepo(repo), branch);
+
+        Assert.Null(Open("app", "proj-30-first").TicketUrl); // nothing tagged anywhere yet: nothing to go by
+        Tags.Set(app, "proj-30-first", TagKind.Ticket, "https://example.atlassian.net/browse/PROJ-30");
+
+        Assert.Equal("https://example.atlassian.net/browse/PROJ-31", Open("other", "proj-31-next").TicketUrl); // any repo
+        Assert.Equal("PROJ-31", workspace.LoadRepo("other").Linked.Single().TicketKey);
+        Assert.Null(Open("app", "fix-32-typo").TicketUrl); // FIX isn't a project anyone has tagged
+
+        // An existing branch keeps the ticket it was tagged with.
+        Git.Run(app, "branch", "proj-33-old");
+        Tags.Set(app, "proj-33-old", TagKind.Ticket, "https://example.atlassian.net/browse/PROJ-30");
+        Assert.Equal("https://example.atlassian.net/browse/PROJ-30", Open("app", "proj-33-old").TicketUrl);
     }
 
     string NewRoot() => Directory.CreateDirectory(Path.Combine(_dir, "repos")).FullName;
@@ -374,6 +453,7 @@ public sealed class WorkspaceTests : IDisposable
         Git.Run(app, "add", ".");
         Commit(app, "init");
         Git.Run(app, "push", "origin", defaultBranch);
+        Git.Run(app, "remote", "set-head", "origin", "-a"); // as a clone of a non-empty repo records it
         return app;
     }
 

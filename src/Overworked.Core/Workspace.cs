@@ -38,7 +38,8 @@ public sealed class Workspace(string root)
     /// <summary>
     /// Opens <paramref name="branch"/> as a worktree, initialises its submodules and copies in the local files its repo's
     /// .worktreeinclude lists (<see cref="CopyIncluded"/>). An existing branch (local, or on origin, which git turns into
-    /// a tracking branch) is checked out; a new name becomes a branch from origin/main.
+    /// a tracking branch) is checked out; a new name becomes a branch from origin's default branch. A branch named after
+    /// a ticket is tagged with it (<see cref="TagFromName"/>).
     /// </summary>
     public Worktree CreateWorktree(Repo repo, string branch)
     {
@@ -53,7 +54,22 @@ public sealed class Workspace(string root)
 
         Submodules.Init(path);
         CopyIncluded(repo.Path, Path.Combine(WorktreesFolder, repo.Name, ".worktreeinclude"), path);
-        return new Worktree(path, branch, IsMain: false, IsMissing: false);
+        return new Worktree(path, branch, IsMain: false, IsMissing: false, TicketUrl: TagFromName(repo, branch));
+    }
+
+    /// <summary>
+    /// The ticket a branch is tagged with, tagging it first when its name starts with a ticket's key, like
+    /// proj-123-retry-payments, and a ticket of that project is tagged somewhere here, whose link shows where the tracker
+    /// is (<see cref="Tags.SuggestTicketUrl"/>). A branch already tagged keeps its tag.
+    /// </summary>
+    string? TagFromName(Repo repo, string branch)
+    {
+        if (Tags.ByBranch(repo.Path).GetValueOrDefault(branch).TicketUrl is { } tagged) return tagged;
+        var known = Directory.EnumerateDirectories(Root).Where(IsMainRepo)
+            .SelectMany(path => Tags.ByBranch(path).Values.Select(t => t.TicketUrl).OfType<string>());
+        if (Tags.SuggestTicketUrl(branch, known) is not { } url) return null;
+        Tags.Set(repo.Path, branch, TagKind.Ticket, url);
+        return url;
     }
 
     /// <summary>
@@ -86,7 +102,7 @@ public sealed class Workspace(string root)
     /// <summary>
     /// Cleans up after a branch deleted on origin, as when its pull request was squash-merged: removes its worktree
     /// (refusing, like <see cref="RemoveWorktree"/>, when that would lose work), or if it's checked out in the repo's own
-    /// folder, switches that back to main (refusing while it has uncommitted changes). Then deletes the local branch if
+    /// folder, switches that back to the default branch (refusing while it has uncommitted changes). Then deletes the local branch if
     /// origin had every commit on it. If there's anything newer, or no way to tell, the branch stays.
     /// </summary>
     /// <exception cref="OverworkedException">Its branch is still on origin, it has work at risk, or git failed.</exception>
@@ -101,7 +117,7 @@ public sealed class Workspace(string root)
         {
             if (Worktrees.CountChangedFiles(worktree.Path) is > 0 and var changes)
                 throw new OverworkedException($"{repo.Name} has {Plural.Of(changes, "uncommitted change")}. Commit or stash first.");
-            switchedTo = Branches.DefaultBranch(repo.Path);
+            switchedTo = repo.DefaultBranch;
             Branches.Switch(worktree.Path, switchedTo, create: false);
         }
         else folderLeftBehind = !RemoveWorktree(repo, worktree, force: false);
@@ -181,7 +197,7 @@ public sealed class Workspace(string root)
                     };
                 })
                 .ToList();
-            return new Repo(name, path, worktrees);
+            return new Repo(name, path, worktrees, DefaultBranch: Branches.DefaultBranch(path));
         }
         catch (OverworkedException e)
         {

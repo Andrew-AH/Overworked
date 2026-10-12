@@ -102,7 +102,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
     }
 
-    /// <summary>Opens a branch as a worktree: an existing branch is checked out, a new name branches from origin/main.</summary>
+    /// <summary>Opens a branch as a worktree: an existing branch is checked out, a new name branches from origin's default branch.</summary>
     public Task CreateWorktreeAsync(RepoRow row, string branch) =>
         ChangeRepoAsync(row.Repo, $"Opening {branch} as a worktree…", (row.Path, "Opening…"), workspace =>
         {
@@ -125,7 +125,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 CloseCodeOn(row.Repo, row.Worktree, folderNameUnique, then: "remove it");
             return workspace.RemoveWorktree(row.Repo, row.Worktree, force)
                 ? $"Removed the {row.Title} worktree"
-                : $"Removed the {row.Title} worktree. Its empty folder goes once VS Code or a terminal stops using it.";
+                : $"Removed the {row.Title} worktree. Its empty folder goes once an editor or a terminal stops using it.";
         });
     }
 
@@ -224,6 +224,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             .Where(w => !w.IsMissing && string.Equals(w.TicketKey, ticketKey, StringComparison.OrdinalIgnoreCase))
             .Select(w => w.Path)
             .ToList();
+
+    /// <summary>The ticket link a branch's name suggests, going by the tickets tagged here (<see cref="Tags.SuggestTicketUrl"/>).</summary>
+    public string? SuggestTicketUrl(string branch) =>
+        Tags.SuggestTicketUrl(branch, _repos.SelectMany(r => r.Worktrees).Select(w => w.TicketUrl).OfType<string>());
 
     public void ToggleExpanded(RepoRow row)
     {

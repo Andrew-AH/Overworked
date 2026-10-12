@@ -10,5 +10,5 @@ public sealed record CleanUpResult(bool BranchDeleted, bool FolderLeftBehind = f
     public string Describe() =>
         (SwitchedTo is { } to ? $"switched the main folder to {to}" : "removed the worktree")
         + (BranchDeleted ? " and deleted the branch" : ", but kept the branch: it may have commits origin never got")
-        + (FolderLeftBehind ? ". Its empty folder goes once VS Code or a terminal stops using it" : "");
+        + (FolderLeftBehind ? ". Its empty folder goes once an editor or a terminal stops using it" : "");
 }

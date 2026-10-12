@@ -43,6 +43,32 @@ public static class Tags
         return uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries).LastOrDefault(IsTicketKey);
     }
 
+    /// <summary>
+    /// The link a branch's ticket would have, going by its name (proj-123-retry-payments names PROJ-123, as does
+    /// feature/PROJ-123) and a ticket of the same project already tagged somewhere, whose link shows where the tracker is
+    /// and how it links a ticket. Null when the name starts with no key, or no tagged ticket shares its project: a
+    /// branch like fix-123-login must not become FIX-123.
+    /// </summary>
+    public static string? SuggestTicketUrl(string branch, IEnumerable<string> knownTicketUrls)
+    {
+        var named = Regex.Match(branch, @"^(?:[^/]+/)?(?<project>[A-Za-z][A-Za-z0-9_]*)-(?<number>[0-9]+)(?=$|[-_/.])");
+        if (!named.Success) return null;
+        foreach (var known in knownTicketUrls)
+        {
+            if (TicketKeyOf(known) is not { } knownKey || !Uri.TryCreate(known, UriKind.Absolute, out var uri)) continue;
+            var project = knownKey[..knownKey.LastIndexOf('-')];
+            if (!project.Equals(named.Groups["project"].Value, StringComparison.OrdinalIgnoreCase)) continue;
+            var key = $"{project}-{named.Groups["number"].Value}";
+            // The known link's path up to its key, then ours: /browse/PROJ-9 → /browse/PROJ-123, /issue/ENG-1/title →
+            // /issue/ENG-55. A board link names its ticket in the query; a ticket's own page on such a site is /browse/<key>.
+            var segments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            var at = Array.FindIndex(segments, s => s.Equals(knownKey, StringComparison.OrdinalIgnoreCase));
+            string[] path = at < 0 ? ["browse"] : segments[..at];
+            return $"{uri.Scheme}://{uri.Authority}/{string.Join('/', path.Append(key))}";
+        }
+        return null;
+    }
+
     /// <summary>Each tagged branch's links, by branch name.</summary>
     internal static IReadOnlyDictionary<string, BranchTags> ByBranch(string repoPath)
     {
