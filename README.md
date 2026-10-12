@@ -17,36 +17,49 @@ every repo in your code folder with its worktrees underneath, and keeps the list
 
 ## Install
 
-Download `Overworked.exe` (Windows) or the `.dmg` (Apple silicon Mac) from the
-[latest release](https://github.com/Andrew-AH/Overworked/releases/latest).
+Download it from the [latest release](https://github.com/Andrew-AH/Overworked/releases/latest):
+
+- **Windows**: `Overworked.exe`.
+- **macOS** (Apple silicon): the `.dmg`. It isn't signed with an Apple Developer ID, so the first time you open it,
+  allow it under System Settings → Privacy & Security → Open Anyway.
 
 Or build it, with [git](https://git-scm.com/downloads) and the
-[.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0):
+[.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
+
+### Windows
+
+Builds `publish\win\Overworked.exe`, which you can pin to the taskbar.
 
 ```powershell
-# Windows: builds publish\win\Overworked.exe
 git clone https://github.com/Andrew-AH/Overworked.git
 cd Overworked
 dotnet publish src/Overworked.App -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none -o publish/win
 ```
 
+### macOS
+
+Builds a `.dmg`; drag Overworked into Applications. On an Intel Mac, run `./mac/package.sh osx-x64` instead.
+
 ```bash
-# macOS: builds a .dmg (on an Intel Mac: ./mac/package.sh osx-x64)
 git clone https://github.com/Andrew-AH/Overworked.git
 cd Overworked
 ./mac/package.sh
 open publish/mac/Overworked-*.dmg
 ```
 
-To add the `ow` command, from the same folder:
+### The `ow` command
+
+From the same folder, on either:
 
 ```
 dotnet pack src/Overworked.Cli -c Release -o nupkg
 dotnet tool install -g Overworked.Cli --add-source ./nupkg
 ```
 
-On first run, click **Choose folder** and pick the folder your repos live in. New worktrees go in
-`.worktrees/<repo>/<branch>` inside it.
+### First run
+
+Click **Choose folder** and pick the folder your repos live in. New worktrees go in `.worktrees/<repo>/<branch>`
+inside it.
 
 ## Using it
 
@@ -104,16 +117,18 @@ ow ticket <repo> <branch> <url>      tag a branch with its ticket
 The [`overworked` skill](.claude/skills/overworked/SKILL.md) has Claude Code keep Overworked up to date as it works,
 without changing how you work: it makes worktrees with `ow` and tags branches with their ticket and PR.
 
-It's active in this repo. To use it in every repo, copy it into your personal skills:
+It's active in this repo. To use it in every repo, copy it into your personal skills.
+
+**Windows**
 
 ```powershell
-# Windows
 New-Item -ItemType Directory -Force "$HOME\.claude\skills" | Out-Null
 Copy-Item -Recurse -Force .claude\skills\overworked "$HOME\.claude\skills\"
 ```
 
+**macOS**
+
 ```bash
-# macOS
 mkdir -p ~/.claude/skills && cp -R .claude/skills/overworked ~/.claude/skills/
 ```
 
@@ -126,11 +141,18 @@ Overworked (`ow`) in step on the side: load the `overworked` skill.
 
 Both apply from your next Claude Code session. Copy the skill again to update it.
 
+## Settings
+
+Overworked keeps no data of its own: tags live in each repo's git config. Its settings file holds your repos folder
+and, optionally, `"Editor"` to open rows in something other than VS Code.
+
+| | Windows | macOS |
+|---|---|---|
+| Settings file | `%APPDATA%\Overworked\config.json` | `~/.config/Overworked/config.json` |
+| `"Editor"`, e.g. for Cursor | `"cursor"`, its command | `"Cursor"`, its app's name |
+
 ## Good to know
 
-- Overworked keeps no data of its own: tags live in each repo's git config. Its settings file
-  (`%APPDATA%\Overworked\config.json`, or `~/.config/Overworked/config.json` on macOS) holds your repos folder and,
-  optionally, `"Editor"` to open rows in something other than VS Code (`"cursor"` on Windows, `"Cursor"` on macOS).
 - **Clean up** never loses work: it refuses while there are uncommitted changes, and keeps the branch unless origin had
   all of it. On a repo's own folder, it switches back to the default branch instead.
 - On Windows, **Clean up** and removing a worktree close its VS Code window first. They find it by title, so if two
@@ -138,8 +160,6 @@ Both apply from your next Claude Code session. Copy the skill again to update it
   `"${activeRepositoryName}${separator}${activeRepositoryBranchName}"`.
 - To copy local files into new worktrees, list them in `.worktrees/<repo>/.worktreeinclude` under your repos folder,
   in `.gitignore` syntax (e.g. `**/appsettings.local.json`). Only files git ignores are copied.
-- The Mac build isn't signed with an Apple Developer ID, so the first time you open it, allow it under
-  System Settings → Privacy & Security → Open Anyway.
 
 ## Development
 
