@@ -28,7 +28,11 @@ Overworked shows every repo in one folder with its worktrees underneath, and kee
 
 ## Get started
 
-You need [git](https://git-scm.com/downloads) and the [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0).
+**Just want the app?** The [latest release](https://github.com/Andrew-AH/Overworked/releases/latest) has `Overworked.exe`
+for Windows and a `.dmg` for Apple silicon Macs (the Mac needs one Open Anyway step, see *Good to know*).
+
+To build it yourself, you need [git](https://git-scm.com/downloads) and the
+[.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
 
 ### Windows
 
@@ -156,8 +160,8 @@ in every repo, copy their folders into `~/.claude/skills`.
   **/appsettings.local.json
   .vscode/
   ```
-- The Mac build is signed for the Mac that built it. To open a copy on another Mac, allow it under System Settings →
-  Privacy & Security → Open Anyway.
+- The Mac build is only ad-hoc signed (no Apple Developer ID), so the first time you open a copy from Releases, or one
+  built on another Mac, allow it under System Settings → Privacy & Security → Open Anyway.
 
 ## Development
 
@@ -165,8 +169,12 @@ in every repo, copy their folders into `~/.claude/skills`.
 dotnet test
 ```
 
-To update an installed `ow`, bump `<Version>` in `src/Overworked.Cli/Overworked.Cli.csproj`, pack again, and run
+To update an installed `ow`, bump `<Version>` in `Directory.Build.props`, pack again, and run
 `dotnet tool update -g Overworked.Cli --add-source ./nupkg`.
+
+To cut a release, bump `<Version>` in `Directory.Build.props` and push a tag like `v0.7.0`: the release workflow builds
+`Overworked.exe` and the `.dmg` and attaches them to a GitHub release. `dotnet test` runs on every pull request, on
+Windows and macOS.
 
 ```
 src/Overworked.Core            git operations, scanning, tags, config (no UI)
