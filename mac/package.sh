@@ -47,10 +47,10 @@ cat > "$app/Contents/Info.plist" << PLIST
 </plist>
 PLIST
 
-# Apple silicon only runs signed code. An ad-hoc signature does for your own Macs; sharing it with other people would
-# need a Developer ID and notarisation.
-find "$app/Contents/MacOS" -name "*.dylib" -exec codesign --force --sign - {} \;
-codesign --force --sign - "$app/Contents/MacOS/Overworked"
+# Apple silicon only runs signed code. codesign counts every file in Contents/MacOS as code, the .NET DLLs included,
+# so each is signed before the bundle, whose signature covers the main executable. An ad-hoc signature does for your
+# own Macs; sharing it with other people would need a Developer ID and notarisation.
+find "$app/Contents/MacOS" -type f ! -name Overworked -exec codesign --force --sign - {} \;
 codesign --force --sign - "$app"
 
 # The disk image: the app beside a link to Applications, to drag it onto.
