@@ -133,6 +133,26 @@
       <Setter Property="Opacity" Value="1" />
     </Style>
 
+    <!-- in place of the pills while something is being done to a row: "Cleaning up…", its icon turning -->
+    <Style Selector="Border.busy">
+      <Setter Property="BorderBrush" Value="{DynamicResource Hairline}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="11" />
+      <Setter Property="Padding" Value="6,1,9,1" />
+    </Style>
+    <Style Selector="Border.busy TextBlock">
+      <Setter Property="FontFamily" Value="{StaticResource Mono}" />
+      <Setter Property="FontSize" Value="11.5" />
+      <Setter Property="FontWeight" Value="Medium" />
+      <Setter Property="Foreground" Value="{DynamicResource Text}" />
+    </Style>
+    <Style Selector="Border.busy Path">
+      <Setter Property="Stroke" Value="{DynamicResource Muted}" />
+      <Setter Property="StrokeThickness" Value="1.5" />
+      <Setter Property="StrokeLineCap" Value="Round" />
+      <Setter Property="StrokeJoin" Value="Round" />
+    </Style>
+
     <!-- RepoMenu: the repo right-click menu with its branch search -->
     <Style Selector="FlyoutPresenter.picker">
       <Setter Property="Background" Value="{DynamicResource Raised}" />

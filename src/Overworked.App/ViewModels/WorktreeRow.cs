@@ -3,7 +3,8 @@ using Overworked.Core;
 namespace Overworked.App.ViewModels;
 
 /// <summary>A linked worktree's row, drawn as a branch off its repo's lane.</summary>
-public sealed class WorktreeRow(Repo repo, Worktree worktree, RowColours colours, bool isLast) : RowViewModel(repo, colours)
+public sealed class WorktreeRow(Repo repo, Worktree worktree, RowColours colours, IReadOnlyDictionary<string, string> busy, bool isLast)
+    : RowViewModel(repo, colours, busy)
 {
     public override Worktree Worktree { get; } = worktree;
     public override string Path => Worktree.Path;

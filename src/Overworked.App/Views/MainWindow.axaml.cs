@@ -73,7 +73,7 @@ public partial class MainWindow : Window
                     (row.AddRepoToTicketText, () => AddRepoToTicket(row, anchor)),
                 }
                 : [],
-            .. row.IsGone ? new[] { ("Clean up", (Action)(() => _ = _viewModel.CleanUpAsync(row))) } : [],
+            .. row.CanCleanUp ? new[] { ("Clean up", (Action)(() => _ = _viewModel.CleanUpAsync(row))) } : [],
         ],
         async choice => await _viewModel.SwitchBranchAsync(row, choice));
     }

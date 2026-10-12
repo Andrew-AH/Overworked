@@ -12,6 +12,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     readonly RepoWatcher _watcher = new();
     readonly DispatcherTimer _everyMinute = new() { Interval = TimeSpan.FromMinutes(1) };
     readonly HashSet<string> _collapsed = new(StringComparer.OrdinalIgnoreCase); // repos whose worktrees are hidden
+    readonly Dictionary<string, string> _busy = new(StringComparer.OrdinalIgnoreCase); // checkouts being changed: "Cleaning up…"
     Workspace? _workspace = Config.LoadRoot() is { } root ? new Workspace(root) : null;
     IReadOnlyList<Repo> _repos = [];
     IReadOnlyList<RepoRow> _rows = [];
@@ -103,7 +104,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     /// <summary>Opens a branch as a worktree: an existing branch is checked out, a new name branches from origin/main.</summary>
     public Task CreateWorktreeAsync(RepoRow row, string branch) =>
-        ChangeRepoAsync(row.Repo, $"Opening {branch} as a worktree…", workspace =>
+        ChangeRepoAsync(row.Repo, $"Opening {branch} as a worktree…", (row.Path, "Opening…"), workspace =>
         {
             workspace.CreateWorktree(row.Repo, branch);
             return $"Opened {branch} as a worktree";
@@ -115,7 +116,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     /// <param name="force">Remove even though work would be lost; only after the user has confirmed that.</param>
     public Task RemoveWorktreeAsync(WorktreeRow row, bool force) =>
-        ChangeRepoAsync(row.Repo, $"Removing {row.Title}…", workspace =>
+        ChangeRepoAsync(row.Repo, $"Removing {row.Title}…", (row.Path, "Removing…"), workspace =>
             workspace.RemoveWorktree(row.Repo, row.Worktree, force)
                 ? $"Removed the {row.Title} worktree"
                 : $"Removed the {row.Title} worktree. Its empty folder goes once VS Code or a terminal stops using it.");
@@ -124,7 +125,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public Task SwitchBranchAsync(RepoRow row, BranchChoice choice)
     {
         if (row.Worktree is not { } main) return Task.CompletedTask;
-        return ChangeRepoAsync(row.Repo, $"Switching {row.Name} to {choice.Name}…", _ =>
+        return ChangeRepoAsync(row.Repo, $"Switching {row.Name} to {choice.Name}…", (row.Path, "Switching…"), _ =>
         {
             Branches.Switch(main.Path, choice.Name, choice.Create);
             return $"{row.Name} is now on {choice.Name}";
@@ -136,7 +137,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     {
         if (row.Branch is not { } branch) return Task.CompletedTask;
         var tag = kind == TagKind.Ticket ? Tags.TicketKeyOf(url) : "its pull request";
-        return ChangeRepoAsync(row.Repo, $"Tagging {branch}…", _ =>
+        return ChangeRepoAsync(row.Repo, $"Tagging {branch}…", onRow: null, _ =>
         {
             Tags.Set(row.Repo.Path, branch, kind, url);
             return $"Tagged {branch} with {tag}";
@@ -150,8 +151,35 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public Task CleanUpAsync(RowViewModel row)
     {
         if (row.Worktree is not { Branch: { } branch } worktree) return Task.CompletedTask;
-        return ChangeRepoAsync(row.Repo, $"Cleaning up {branch}…", workspace =>
-            $"Cleaned up {branch}: {workspace.CleanUp(row.Repo, worktree).Describe()}");
+        var folderNameUnique = _repos.SelectMany(r => r.Worktrees)
+            .Count(w => string.Equals(w.FolderName, worktree.FolderName, StringComparison.OrdinalIgnoreCase)) == 1;
+        return ChangeRepoAsync(row.Repo, $"Cleaning up {branch}…", (row.Path, "Cleaning up…"), workspace =>
+        {
+            // A worktree's folder is about to go, so close VS Code on it first; then the folder can go too. Not when
+            // there's work at risk, as Clean up refuses then. The repo's own folder stays, and so does its window.
+            if (!worktree.IsMain && Worktrees.FindWorkAtRisk(worktree.Path) is null)
+            {
+                var windows = Platform.CodeWindows()
+                    .Where(w => ShowsCheckout(w.Title, row.Repo.Name, worktree, folderNameUnique)).Select(w => w.Handle).ToList();
+                if (!Platform.CloseWindows(windows, TimeSpan.FromSeconds(5)))
+                    throw new OverworkedException(
+                        $"VS Code is still open on {branch}, maybe asking whether to save changes. Close it, then Clean up again.");
+            }
+            return $"Cleaned up {branch}: {workspace.CleanUp(row.Repo, worktree).Describe()}";
+        });
+    }
+
+    /// <summary>
+    /// Whether a VS Code window's title shows this worktree. Titles are parts joined by " - ": by default the open file,
+    /// the folder's name and "Visual Studio Code"; with window.title set to ${activeRepositoryName} and
+    /// ${activeRepositoryBranchName}, the repo and branch. A part naming the folder or branch is enough when no other
+    /// checkout has that folder name; otherwise the repo's name must be there too, so another repo's window never closes.
+    /// </summary>
+    internal static bool ShowsCheckout(string title, string repoName, Worktree worktree, bool folderNameUnique)
+    {
+        var parts = title.TrimStart('●', ' ').Split(" - ").Select(part => part.Trim()).ToList();
+        bool Has(string? text) => text is not null && parts.Contains(text, StringComparer.OrdinalIgnoreCase);
+        return (Has(worktree.FolderName) || Has(worktree.Branch)) && (folderNameUnique || Has(repoName));
     }
 
     /// <summary>Repos the row's branch could also be opened in: the readable ones without it checked out, in list order.</summary>
@@ -162,7 +190,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public Task AddRepoToTicketAsync(RowViewModel row, Repo other)
     {
         if (row is not { Branch: { } branch, TicketUrl: { } ticket }) return Task.CompletedTask;
-        return ChangeRepoAsync(other, $"Opening {branch} in {other.Name}…", workspace =>
+        return ChangeRepoAsync(other, $"Opening {branch} in {other.Name}…", (other.Path, "Opening…"), workspace =>
         {
             workspace.CreateWorktree(other, branch);
             Tags.Set(other.Path, branch, TagKind.Ticket, ticket);
@@ -194,11 +222,13 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     /// Runs a change to one repo off the UI thread, rescans that repo, and only then reports the change done, so the list
     /// and the message never disagree.
     /// </summary>
+    /// <param name="onRow">The checkout being changed, and a word for its row while it is, e.g. "Cleaning up…".</param>
     /// <param name="change">Makes the change and returns the message saying it's done.</param>
-    async Task ChangeRepoAsync(Repo repo, string progress, Func<Workspace, string> change)
+    async Task ChangeRepoAsync(Repo repo, string progress, (string Path, string Text)? onRow, Func<Workspace, string> change)
     {
         if (_workspace is not { } workspace) return;
         Status.ShowProgress(progress);
+        if (onRow is { } start) MarkBusy(start.Path, start.Text);
         try
         {
             var done = await Task.Run(() => change(workspace));
@@ -210,6 +240,22 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             Status.ShowError(e.Message);
             await ReloadAsync(workspace, repo);
         }
+        finally
+        {
+            if (onRow is { } end) MarkBusy(end.Path, null);
+        }
+    }
+
+    /// <summary>
+    /// Puts what's being done to a checkout on its row, or takes it off (null). Redraws, as rows read it as they're built;
+    /// rows rebuilt by a refresh meanwhile keep showing it.
+    /// </summary>
+    void MarkBusy(string path, string? text)
+    {
+        if (text is null) _busy.Remove(path);
+        else _busy[path] = text;
+        _mustRedraw = true;
+        Show(_repos);
     }
 
     /// <summary>
@@ -253,7 +299,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
         _mustRedraw = false;
         var colours = RowColours.For(repos);
-        Rows = InFlightFirst(repos).Select(r => new RepoRow(r, isExpanded: !_collapsed.Contains(r.Path), colours)).ToList();
+        Rows = InFlightFirst(repos).Select(r => new RepoRow(r, isExpanded: !_collapsed.Contains(r.Path), colours, _busy)).ToList();
         var worktrees = repos.Sum(r => r.Linked.Count(w => !w.IsMissing));
         SummaryCount = worktrees == 0 ? "Nothing" : Plural.Of(worktrees, "worktree");
         SummaryRest = $" in flight across {Plural.Of(repos.Count, "repo")}";

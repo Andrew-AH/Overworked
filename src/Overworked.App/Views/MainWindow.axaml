@@ -125,9 +125,15 @@
                               Click="OpenTicket_Click" Margin="8,6,0,0" VerticalAlignment="Top" IsVisible="{Binding HasTicket}" />
                       <Button Classes="tag pr" Content="{Binding PullRequestText}" ToolTip.Tip="{Binding PullRequestUrl}" Click="OpenPullRequest_Click"
                               Margin="8,6,0,0" VerticalAlignment="Top" IsVisible="{Binding HasPullRequest}" />
-                      <Button Classes="tag cleanup" Content="Clean up" Click="CleanUp_Click" IsVisible="{Binding IsGone}"
+                      <Button Classes="tag cleanup" Content="Clean up" Click="CleanUp_Click" IsVisible="{Binding CanCleanUp}"
                               ToolTip.Tip="Switch back to main, and delete this branch too if origin had all of it"
                               Margin="8,6,0,0" VerticalAlignment="Top" />
+                      <Border Classes="busy" IsVisible="{Binding IsBusy}" Margin="8,6,0,0" VerticalAlignment="Top">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                          <Path Classes="spinning" Data="M 12,7 A 5,5 0 1 1 10.5,3.4 M 11,0.8 L 11,3.8 L 8,3.8" Width="14" Height="14" />
+                          <TextBlock Text="{Binding BusyText}" VerticalAlignment="Center" />
+                        </StackPanel>
+                      </Border>
                     </StackPanel>
                     <Button Grid.Column="3" Classes="icon add" Click="NewWorktree_Click" ToolTip.Tip="New worktree"
                             VerticalAlignment="Top" Margin="2,5,4,0">
@@ -160,8 +166,8 @@
                             <MenuItem Header="{Binding OpenTicketText}" Click="OpenTicketInCode_Click" IsVisible="{Binding HasTicket}" />
                             <MenuItem Header="{Binding AddRepoToTicketText}" Click="AddRepoToTicket_Click" IsVisible="{Binding HasTicket}" />
                             <Separator />
-                            <MenuItem Header="Clean up" Click="CleanUp_Click" IsVisible="{Binding IsGone}" />
-                            <MenuItem Header="Remove worktree…" Click="RemoveWorktree_Click" />
+                            <MenuItem Header="Clean up" Click="CleanUp_Click" IsVisible="{Binding CanCleanUp}" />
+                            <MenuItem Header="Remove worktree…" Click="RemoveWorktree_Click" IsVisible="{Binding !IsBusy}" />
                           </ContextMenu>
                         </Border.ContextMenu>
                         <Grid ColumnDefinitions="54,*,Auto">
@@ -190,9 +196,15 @@
                                     Click="OpenTicket_Click" Margin="8,5,0,0" VerticalAlignment="Top" IsVisible="{Binding HasTicket}" />
                             <Button Classes="tag pr" Content="{Binding PullRequestText}" ToolTip.Tip="{Binding PullRequestUrl}" Click="OpenPullRequest_Click"
                                     Margin="8,5,0,0" VerticalAlignment="Top" IsVisible="{Binding HasPullRequest}" />
-                            <Button Classes="tag cleanup" Content="Clean up" Click="CleanUp_Click" IsVisible="{Binding IsGone}"
+                            <Button Classes="tag cleanup" Content="Clean up" Click="CleanUp_Click" IsVisible="{Binding CanCleanUp}"
                                     ToolTip.Tip="Remove this worktree, and its branch too if origin had all of it"
                                     Margin="8,5,0,0" VerticalAlignment="Top" />
+                            <Border Classes="busy" IsVisible="{Binding IsBusy}" Margin="8,5,0,0" VerticalAlignment="Top">
+                              <StackPanel Orientation="Horizontal" Spacing="5">
+                                <Path Classes="spinning" Data="M 12,7 A 5,5 0 1 1 10.5,3.4 M 11,0.8 L 11,3.8 L 8,3.8" Width="14" Height="14" />
+                                <TextBlock Text="{Binding BusyText}" VerticalAlignment="Center" />
+                              </StackPanel>
+                            </Border>
                           </StackPanel>
                         </Grid>
                       </Border>

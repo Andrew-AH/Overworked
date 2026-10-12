@@ -7,11 +7,11 @@ public sealed class RepoRow : RowViewModel
 {
     bool _isExpanded;
 
-    public RepoRow(Repo repo, bool isExpanded, RowColours colours) : base(repo, colours)
+    public RepoRow(Repo repo, bool isExpanded, RowColours colours, IReadOnlyDictionary<string, string> busy) : base(repo, colours, busy)
     {
         _isExpanded = isExpanded;
         var linked = repo.Linked.ToList();
-        Worktrees = linked.Select((w, i) => new WorktreeRow(repo, w, colours, isLast: i == linked.Count - 1)).ToList();
+        Worktrees = linked.Select((w, i) => new WorktreeRow(repo, w, colours, busy, isLast: i == linked.Count - 1)).ToList();
     }
 
     public override Worktree? Worktree => Repo.Main;

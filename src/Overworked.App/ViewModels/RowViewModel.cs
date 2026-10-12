@@ -4,7 +4,8 @@ using Overworked.Core;
 namespace Overworked.App.ViewModels;
 
 /// <summary>A row in the list: a repo (<see cref="RepoRow"/>) or one of its linked worktrees (<see cref="WorktreeRow"/>).</summary>
-public abstract class RowViewModel(Repo repo, RowColours colours) : ObservableObject
+/// <param name="busy">What's being done to each checkout right now, by path (<see cref="MainViewModel"/> keeps it).</param>
+public abstract class RowViewModel(Repo repo, RowColours colours, IReadOnlyDictionary<string, string> busy) : ObservableObject
 {
     public Repo Repo { get; } = repo;
 
@@ -29,6 +30,11 @@ public abstract class RowViewModel(Repo repo, RowColours colours) : ObservableOb
 
     /// <summary>Its branch was deleted on origin, as when its pull request was merged; Clean up tidies it away.</summary>
     public bool IsGone => Worktree?.BranchGone == true && !IsMissing;
+    public bool CanCleanUp => IsGone && !IsBusy;
+
+    /// <summary>What's being done to this checkout right now, e.g. "Cleaning up…"; null when nothing is.</summary>
+    public string? BusyText => busy.GetValueOrDefault(Path);
+    public bool IsBusy => BusyText is not null;
 
     public bool IsDirty => Worktree?.ChangedFiles > 0;
     public string ChangesText => $"{Worktree?.ChangedFiles} changed";
