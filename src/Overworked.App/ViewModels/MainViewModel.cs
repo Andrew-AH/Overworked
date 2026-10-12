@@ -115,11 +115,19 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         row.IsMissing ? Task.FromResult<WorkAtRisk?>(null) : Task.Run(() => Worktrees.FindWorkAtRisk(row.Path));
 
     /// <param name="force">Remove even though work would be lost; only after the user has confirmed that.</param>
-    public Task RemoveWorktreeAsync(WorktreeRow row, bool force) =>
-        ChangeRepoAsync(row.Repo, $"Removing {row.Title}…", (row.Path, "Removing…"), workspace =>
-            workspace.RemoveWorktree(row.Repo, row.Worktree, force)
+    public Task RemoveWorktreeAsync(WorktreeRow row, bool force)
+    {
+        var folderNameUnique = FolderNameUnique(row.Worktree);
+        return ChangeRepoAsync(row.Repo, $"Removing {row.Title}…", (row.Path, "Removing…"), workspace =>
+        {
+            // Not when there's work at risk the user hasn't agreed to lose, as removing refuses then.
+            if (!row.IsMissing && (force || Worktrees.FindWorkAtRisk(row.Path) is null))
+                CloseCodeOn(row.Repo, row.Worktree, folderNameUnique, then: "remove it");
+            return workspace.RemoveWorktree(row.Repo, row.Worktree, force)
                 ? $"Removed the {row.Title} worktree"
-                : $"Removed the {row.Title} worktree. Its empty folder goes once VS Code or a terminal stops using it.");
+                : $"Removed the {row.Title} worktree. Its empty folder goes once VS Code or a terminal stops using it.";
+        });
+    }
 
     /// <summary>Changes the main folder's branch. Worktrees don't switch: they stay on the branch they were made for.</summary>
     public Task SwitchBranchAsync(RepoRow row, BranchChoice choice)
@@ -151,22 +159,34 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public Task CleanUpAsync(RowViewModel row)
     {
         if (row.Worktree is not { Branch: { } branch } worktree) return Task.CompletedTask;
-        var folderNameUnique = _repos.SelectMany(r => r.Worktrees)
-            .Count(w => string.Equals(w.FolderName, worktree.FolderName, StringComparison.OrdinalIgnoreCase)) == 1;
+        var folderNameUnique = FolderNameUnique(worktree);
         return ChangeRepoAsync(row.Repo, $"Cleaning up {branch}…", (row.Path, "Cleaning up…"), workspace =>
         {
-            // A worktree's folder is about to go, so close VS Code on it first; then the folder can go too. Not when
-            // there's work at risk, as Clean up refuses then. The repo's own folder stays, and so does its window.
+            // Not when there's work at risk, as Clean up refuses then. The repo's own folder stays, and so does its window.
             if (!worktree.IsMain && Worktrees.FindWorkAtRisk(worktree.Path) is null)
-            {
-                var windows = Platform.CodeWindows()
-                    .Where(w => ShowsCheckout(w.Title, row.Repo.Name, worktree, folderNameUnique)).Select(w => w.Handle).ToList();
-                if (!Platform.CloseWindows(windows, TimeSpan.FromSeconds(5)))
-                    throw new OverworkedException(
-                        $"VS Code is still open on {branch}, maybe asking whether to save changes. Close it, then Clean up again.");
-            }
+                CloseCodeOn(row.Repo, worktree, folderNameUnique, then: "Clean up");
             return $"Cleaned up {branch}: {workspace.CleanUp(row.Repo, worktree).Describe()}";
         });
+    }
+
+    /// <summary>Whether no other checkout has this worktree's folder name, so a title naming just the folder means this one.</summary>
+    bool FolderNameUnique(Worktree worktree) =>
+        _repos.SelectMany(r => r.Worktrees)
+            .Count(w => string.Equals(w.FolderName, worktree.FolderName, StringComparison.OrdinalIgnoreCase)) == 1;
+
+    /// <summary>
+    /// Closes the VS Code windows on a worktree whose folder is about to go, as their close button would, so the folder
+    /// can go too rather than wait for them to let it go. Off the UI thread: it waits for them to close.
+    /// </summary>
+    /// <param name="then">What to tell the user to do once they've closed it themselves, e.g. "Clean up".</param>
+    /// <exception cref="OverworkedException">One stayed open, say asking whether to save changes.</exception>
+    static void CloseCodeOn(Repo repo, Worktree worktree, bool folderNameUnique, string then)
+    {
+        var windows = Platform.CodeWindows()
+            .Where(w => ShowsCheckout(w.Title, repo.Name, worktree, folderNameUnique)).Select(w => w.Handle).ToList();
+        if (!Platform.CloseWindows(windows, TimeSpan.FromSeconds(5)))
+            throw new OverworkedException(
+                $"VS Code is still open on {worktree.Branch ?? worktree.FolderName}, maybe asking whether to save changes. Close it, then {then} again.");
     }
 
     /// <summary>

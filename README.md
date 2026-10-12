@@ -74,7 +74,7 @@ with its worktrees underneath, and the repos you have worktrees in sit at the to
 |---|---|
 | **Double-click** a row | open it in VS Code |
 | **+** on a repo | open any branch as a worktree, or type a new name to branch from `origin/main` |
-| **Right-click** a worktree | open it in VS Code, a folder or a terminal; copy its branch; tag it; work with its ticket; remove it |
+| **Right-click** a worktree | open it in VS Code, a folder or a terminal; copy its branch; tag it; work with its ticket; remove it (closing VS Code on it) |
 | **Right-click** a repo | switch its branch, plus the same actions |
 | **Click** a tag | open the ticket or pull request |
 | **↻** at the top | rescan, and check origin for branches deleted there; it spins while that runs (opening the app does this too, and it runs by itself every minute) |
@@ -143,11 +143,11 @@ in every repo, copy their folders into `~/.claude/skills`.
 - **Clean up** also deletes the worktree's local branch, but only if origin had every commit on it. If there's
   anything newer, or it can't tell (the branch was pruned by some other fetch first), the branch stays. On a repo's
   own folder it refuses while there are uncommitted changes.
-- On Windows, **Clean up** first closes any VS Code window on the worktree, as its close button would, so the folder
-  can go too. It finds the window by its title, which by default names the folder; when another repo has a folder of
-  the same name, it needs the repo in the title too, as with
+- On Windows, **Clean up** and removing a worktree first close any VS Code window on it, as its close button would,
+  so the folder can go too. They find the window by its title, which by default names the folder; when another repo
+  has a folder of the same name, the title needs the repo too, as with
   `"window.title": "${activeRepositoryName}${separator}${activeRepositoryBranchName}"`. If VS Code stays open, say
-  to ask about unsaved changes, Clean up stops and leaves everything as it was.
+  to ask about unsaved changes, they stop and leave everything as it was.
 - A repo's `.worktreeinclude` lives with its worktrees, in `.worktrees/<repo>/.worktreeinclude` under your repos
   folder, never in the repo itself. It uses `.gitignore` syntax, and a new worktree gets a copy of each file in the
   repo's own folder that it matches and git ignores, for example:
