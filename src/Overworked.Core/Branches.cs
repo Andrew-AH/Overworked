@@ -8,12 +8,20 @@ public static class Branches
     const string LocalPrefix = "refs/heads/";
     const string OriginPrefix = "refs/remotes/origin/";
 
-    /// <summary>Where new branches start, whether made for a worktree or by switching: origin/main, or origin/master in repos without a main.</summary>
+    /// <summary>Where new branches start, whether made for a worktree or by switching: origin's default branch.</summary>
     internal static string Base(string repoPath) => "origin/" + DefaultBranch(repoPath);
 
-    /// <summary>main, or master in repos without a main.</summary>
-    internal static string DefaultBranch(string repoPath) =>
-        Git.Succeeds(repoPath, "show-ref", "--verify", "--quiet", OriginPrefix + "main") ? "main" : "master";
+    /// <summary>
+    /// Origin's default branch, whatever its name (main, develop, trunk…): where origin's HEAD points, as a clone records
+    /// it. A repo with no such record (git init, then remote add) is taken to use main, or master if it has no main;
+    /// `git remote set-head origin -a` records the real one.
+    /// </summary>
+    public static string DefaultBranch(string repoPath)
+    {
+        try { return Git.Run(repoPath, "symbolic-ref", "refs/remotes/origin/HEAD").Trim()[OriginPrefix.Length..]; }
+        catch (OverworkedException) { }
+        return Git.Succeeds(repoPath, "show-ref", "--verify", "--quiet", OriginPrefix + "main") ? "main" : "master";
+    }
 
     // git config: the last commit origin had of a branch, noted as its copy there was deleted.
     const string LastPushedSetting = "overworked-last-pushed";
@@ -30,8 +38,19 @@ public static class Branches
         Git.Run(repoPath, "fetch", "origin", "--prune");
         var after = OriginTips(repoPath);
         foreach (var (branch, state) in tracking)
-            if (state.Upstream is { } upstream && before.TryGetValue(upstream, out var lastTip) && !after.ContainsKey(upstream))
+        {
+            var upstream = state.Upstream;
+            // Pushed with a plain `git push origin <branch>`, so git doesn't track origin's copy and would never report it
+            // gone. Track it now, as `git push -u` would have.
+            if (upstream is null && (before.ContainsKey(OriginPrefix + branch) || after.ContainsKey(OriginPrefix + branch)))
+            {
+                Git.Run(repoPath, "config", "--local", $"branch.{branch}.remote", "origin");
+                Git.Run(repoPath, "config", "--local", $"branch.{branch}.merge", LocalPrefix + branch);
+                upstream = OriginPrefix + branch;
+            }
+            if (upstream is not null && before.TryGetValue(upstream, out var lastTip) && !after.ContainsKey(upstream))
                 Git.Run(repoPath, "config", "--local", $"branch.{branch}.{LastPushedSetting}", lastTip);
+        }
     }
 
     /// <summary><see cref="Fetch"/> for several repos at once. What failed, one line per repo: "app: &lt;git's error&gt;".</summary>

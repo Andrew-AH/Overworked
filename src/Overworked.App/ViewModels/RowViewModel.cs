@@ -46,7 +46,8 @@ public abstract class RowViewModel(Repo repo, RowColours colours, IReadOnlyDicti
     public string? TicketKey => Worktree?.TicketKey;
     public bool HasTicket => TicketKey is not null;
     public IBrush? TicketColour => colours.TicketColourFor(TicketKey);
-    public string OpenTicketText => $"Open {TicketKey} in VS Code";
+    public string OpenInEditorText => $"Open in {Platform.EditorName}";
+    public string OpenTicketText => $"Open {TicketKey} in {Platform.EditorName}";
     public string AddRepoToTicketText => $"Add a repo to {TicketKey}…";
 
     public string? PullRequestUrl => Worktree?.PullRequestUrl;

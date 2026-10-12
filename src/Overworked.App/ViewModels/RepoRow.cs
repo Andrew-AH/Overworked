@@ -22,6 +22,8 @@ public sealed class RepoRow : RowViewModel
     public override bool IsBroken => Repo.Error is not null || base.IsBroken;
     public override string Detail => Repo.Error?.Split('\n')[0] ?? (IsGone ? $"{Branch} · deleted on origin" : base.Detail);
 
+    public string CleanUpTip => $"Switch back to {Repo.DefaultBranch}, and delete this branch too if origin had all of it";
+
     public IReadOnlyList<WorktreeRow> Worktrees { get; }
     public bool HasWorktrees => Worktrees.Count > 0;
 

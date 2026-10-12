@@ -55,7 +55,7 @@ public partial class MainWindow : Window
         RepoMenu.Show(anchor, row.Repo.Path, row.Worktree,
         [
             ("New worktree…", () => NewWorktree(row, anchor)),
-            ("Open in VS Code", () => Open(Platform.OpenInCode, row)),
+            ($"Open in {Platform.EditorName}", () => Open(Platform.OpenInCode, row)),
             ("Open folder", () => Open(Platform.OpenFolder, row)),
             ("Open terminal", () => Open(Platform.OpenTerminal, row)),
             .. row.HasBranch
@@ -83,7 +83,7 @@ public partial class MainWindow : Window
         if (sender is Visual button && RowOf<RepoRow>(sender) is { } row) NewWorktree(row, RepoNameIn(RowBorderOf(button)));
     }
 
-    /// <summary>Pick any branch to open it as a worktree, or type a new name to create one from origin/main.</summary>
+    /// <summary>Pick any branch to open it as a worktree, or type a new name to create one from origin's default branch.</summary>
     void NewWorktree(RepoRow row, Control anchor) =>
         RepoMenu.ShowNewWorktree(anchor, row.Repo.Path, async choice => await _viewModel.CreateWorktreeAsync(row, choice.Name));
 
@@ -167,7 +167,7 @@ public partial class MainWindow : Window
     void TagTicket_Click(object? sender, RoutedEventArgs e) => TagBranch(RowOf<RowViewModel>(sender), TagKind.Ticket);
     void TagPullRequest_Click(object? sender, RoutedEventArgs e) => TagBranch(RowOf<RowViewModel>(sender), TagKind.PullRequest);
 
-    /// <summary>Asks for the link to tag the row's branch with, showing the one it has now, if any.</summary>
+    /// <summary>Asks for the link to tag the row's branch with, showing the one it has now, or for a ticket, the one its name suggests.</summary>
     async void TagBranch(RowViewModel? row, TagKind kind)
     {
         if (row?.Branch is not { } branch) return;
@@ -178,7 +178,7 @@ public partial class MainWindow : Window
             message: ticket
                 ? "Paste the ticket's link: its own page, or a board with it open. Every row with the same ticket shares its colour."
                 : "Paste the pull request's link.",
-            text: (ticket ? row.TicketUrl : row.PullRequestUrl) ?? "",
+            text: (ticket ? row.TicketUrl ?? _viewModel.SuggestTicketUrl(branch) : row.PullRequestUrl) ?? "",
             placeholder: "https://…",
             action: "Tag",
             validate: answer => answer.Length == 0 ? "Paste a link first." : Tags.ProblemWith(kind, answer));

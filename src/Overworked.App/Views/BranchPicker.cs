@@ -25,6 +25,7 @@ sealed class BranchPicker : StackPanel
     readonly ListBox _list;
     readonly TextBlock _status = new() { Classes = { "mono" }, FontSize = 11, Margin = new Thickness(8, 6, 0, 0), IsVisible = false };
     IReadOnlyList<BranchRef>? _branches; // null until the first read finishes
+    string _defaultBranch = "main";      // read along with them
 
     /// <param name="exclude">A branch to leave out: the one already checked out, when switching.</param>
     /// <param name="listOpen">Show the list straight away, rather than once you click into the box.</param>
@@ -76,7 +77,7 @@ sealed class BranchPicker : StackPanel
     {
         try
         {
-            _branches = await Task.Run(() => Branches.List(_repoPath));
+            (_branches, _defaultBranch) = await Task.Run(() => (Branches.List(_repoPath), Branches.DefaultBranch(_repoPath)));
             Refilter();
             ShowStatus("fetching origin…");
             await Task.Run(() => Branches.Fetch(_repoPath));
@@ -114,7 +115,7 @@ sealed class BranchPicker : StackPanel
             return;
         }
         var query = _search.Text?.Trim() ?? "";
-        var options = BranchSearch.Filter(_branches, query, _exclude, mainFolder: _repoPath, DateTimeOffset.Now);
+        var options = BranchSearch.Filter(_branches, query, _exclude, mainFolder: _repoPath, DateTimeOffset.Now, _defaultBranch);
         _list.ItemsSource = options;
         _list.SelectedIndex = query.Length > 0 ? options.FindIndex(o => o.CanPick) : -1;
     }
