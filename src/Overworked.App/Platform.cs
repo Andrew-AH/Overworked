@@ -21,12 +21,6 @@ static class Platform
     public static void OpenInCode(IReadOnlyList<string> paths) =>
         Start(OperatingSystem.IsWindows() ? ["cmd", "/c", Editor, .. paths] : ["open", "-a", Editor, .. paths]);
 
-    public static void OpenFolder(string path) =>
-        Start(OperatingSystem.IsWindows() ? ["explorer", path] : ["open", path]);
-
-    public static void OpenTerminal(string path) =>
-        Start(OperatingSystem.IsWindows() ? ["wt", "-d", path] : ["open", "-a", "Terminal", path]);
-
     /// <summary>The open VS Code windows and their titles.</summary>
     // ponytail: Windows only; on a Mac there are none to close, so Clean up leaves VS Code open there as before.
     public static IReadOnlyList<(nint Handle, string Title)> CodeWindows()

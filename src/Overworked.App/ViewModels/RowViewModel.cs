@@ -47,8 +47,8 @@ public abstract class RowViewModel(Repo repo, RowColours colours, IReadOnlyDicti
     public bool HasTicket => TicketKey is not null;
     public IBrush? TicketColour => colours.TicketColourFor(TicketKey);
     public string OpenInEditorText => $"Open in {Platform.EditorName}";
-    public string OpenTicketText => $"Open {TicketKey} in {Platform.EditorName}";
-    public string AddRepoToTicketText => $"Add a repo to {TicketKey}…";
+    public string OpenTicketText => $"Open all {TicketKey} repos in one {Platform.EditorName} window";
+    public string AddRepoToTicketText => $"Open {TicketKey} in another repo…";
 
     public string? PullRequestUrl => Worktree?.PullRequestUrl;
     public bool HasPullRequest => PullRequestUrl is not null;

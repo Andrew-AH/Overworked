@@ -56,8 +56,6 @@ public partial class MainWindow : Window
         [
             ("New worktree…", () => NewWorktree(row, anchor)),
             ($"Open in {Platform.EditorName}", () => Open(Platform.OpenInCode, row)),
-            ("Open folder", () => Open(Platform.OpenFolder, row)),
-            ("Open terminal", () => Open(Platform.OpenTerminal, row)),
             .. row.HasBranch
                 ? new[]
                 {
@@ -156,8 +154,6 @@ public partial class MainWindow : Window
     }
 
     void OpenInCode_Click(object? sender, RoutedEventArgs e) => Open(Platform.OpenInCode, RowOf<RowViewModel>(sender));
-    void OpenFolder_Click(object? sender, RoutedEventArgs e) => Open(Platform.OpenFolder, RowOf<RowViewModel>(sender));
-    void OpenTerminal_Click(object? sender, RoutedEventArgs e) => Open(Platform.OpenTerminal, RowOf<RowViewModel>(sender));
 
     void CopyBranch_Click(object? sender, RoutedEventArgs e)
     {
@@ -185,11 +181,17 @@ public partial class MainWindow : Window
         if (link is not null) await _viewModel.TagAsync(row, kind, link);
     }
 
-    async void CopyBranch(RowViewModel row)
+    void CopyBranch(RowViewModel row) => Copy(row.Branch);
+
+    // Right-clicking a ticket or PR pill.
+    void CopyTicketLink_Click(object? sender, RoutedEventArgs e) => Copy(RowOf<RowViewModel>(sender)?.TicketUrl);
+    void CopyPullRequestLink_Click(object? sender, RoutedEventArgs e) => Copy(RowOf<RowViewModel>(sender)?.PullRequestUrl);
+
+    async void Copy(string? text)
     {
-        if (row.Branch is not { } branch || Clipboard is null) return;
-        await Clipboard.SetTextAsync(branch);
-        _viewModel.Status.Show($"Copied {branch}");
+        if (text is null || Clipboard is null) return;
+        await Clipboard.SetTextAsync(text);
+        _viewModel.Status.Show($"Copied {text}");
     }
 
     void Open(Action<string> open, RowViewModel? row)

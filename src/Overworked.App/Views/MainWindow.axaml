@@ -122,9 +122,21 @@
                       <TextBlock Text="{Binding UnpushedText}" Classes="mono dirty" Margin="8,10,0,0" IsVisible="{Binding HasUnpushed}"
                                  ToolTip.Tip="Commits origin doesn't have yet" />
                       <Button Classes="tag ticket" Content="{Binding TicketKey}" Background="{Binding TicketColour}" ToolTip.Tip="{Binding TicketUrl}"
-                              Click="OpenTicket_Click" Margin="8,6,0,0" VerticalAlignment="Top" IsVisible="{Binding HasTicket}" />
+                              Click="OpenTicket_Click" Margin="8,6,0,0" VerticalAlignment="Top" IsVisible="{Binding HasTicket}">
+                        <Button.ContextMenu>
+                          <ContextMenu>
+                            <MenuItem Header="Copy link" Click="CopyTicketLink_Click" />
+                          </ContextMenu>
+                        </Button.ContextMenu>
+                      </Button>
                       <Button Classes="tag pr" Content="{Binding PullRequestText}" ToolTip.Tip="{Binding PullRequestUrl}" Click="OpenPullRequest_Click"
-                              Margin="8,6,0,0" VerticalAlignment="Top" IsVisible="{Binding HasPullRequest}" />
+                              Margin="8,6,0,0" VerticalAlignment="Top" IsVisible="{Binding HasPullRequest}">
+                        <Button.ContextMenu>
+                          <ContextMenu>
+                            <MenuItem Header="Copy link" Click="CopyPullRequestLink_Click" />
+                          </ContextMenu>
+                        </Button.ContextMenu>
+                      </Button>
                       <Button Classes="tag cleanup" Content="Clean up" Click="CleanUp_Click" IsVisible="{Binding CanCleanUp}"
                               ToolTip.Tip="{Binding CleanUpTip}"
                               Margin="8,6,0,0" VerticalAlignment="Top" />
@@ -158,8 +170,6 @@
                         <Border.ContextMenu>
                           <ContextMenu>
                             <MenuItem Header="{Binding OpenInEditorText}" Click="OpenInCode_Click" />
-                            <MenuItem Header="Open folder" Click="OpenFolder_Click" />
-                            <MenuItem Header="Open terminal" Click="OpenTerminal_Click" />
                             <MenuItem Header="Copy branch name" Click="CopyBranch_Click" IsVisible="{Binding HasBranch}" />
                             <MenuItem Header="Tag ticket…" Click="TagTicket_Click" IsVisible="{Binding HasBranch}" />
                             <MenuItem Header="Tag pull request…" Click="TagPullRequest_Click" IsVisible="{Binding HasBranch}" />
@@ -193,9 +203,21 @@
                             <TextBlock Text="{Binding UnpushedText}" Classes="mono dirty" Margin="8,10,0,0" IsVisible="{Binding HasUnpushed}"
                                        ToolTip.Tip="Commits origin doesn't have yet" />
                             <Button Classes="tag ticket" Content="{Binding TicketKey}" Background="{Binding TicketColour}" ToolTip.Tip="{Binding TicketUrl}"
-                                    Click="OpenTicket_Click" Margin="8,5,0,0" VerticalAlignment="Top" IsVisible="{Binding HasTicket}" />
+                                    Click="OpenTicket_Click" Margin="8,5,0,0" VerticalAlignment="Top" IsVisible="{Binding HasTicket}">
+                              <Button.ContextMenu>
+                                <ContextMenu>
+                                  <MenuItem Header="Copy link" Click="CopyTicketLink_Click" />
+                                </ContextMenu>
+                              </Button.ContextMenu>
+                            </Button>
                             <Button Classes="tag pr" Content="{Binding PullRequestText}" ToolTip.Tip="{Binding PullRequestUrl}" Click="OpenPullRequest_Click"
-                                    Margin="8,5,0,0" VerticalAlignment="Top" IsVisible="{Binding HasPullRequest}" />
+                                    Margin="8,5,0,0" VerticalAlignment="Top" IsVisible="{Binding HasPullRequest}">
+                              <Button.ContextMenu>
+                                <ContextMenu>
+                                  <MenuItem Header="Copy link" Click="CopyPullRequestLink_Click" />
+                                </ContextMenu>
+                              </Button.ContextMenu>
+                            </Button>
                             <Button Classes="tag cleanup" Content="Clean up" Click="CleanUp_Click" IsVisible="{Binding CanCleanUp}"
                                     ToolTip.Tip="Remove this worktree, and its branch too if origin had all of it"
                                     Margin="8,5,0,0" VerticalAlignment="Top" />
