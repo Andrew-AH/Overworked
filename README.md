@@ -6,84 +6,58 @@
 
 <p align="center"><img src="docs/main.png" width="460" alt="Overworked listing five repos with their worktrees, ticket tags and pull requests"></p>
 
-## Why
+Git worktrees let you work on several branches at once, a folder each, but they pile up across repos. Overworked lists
+every repo in your code folder with its worktrees underneath, and keeps the list current as you work.
 
-Working on a few things at once usually means git worktrees: a folder per branch, so you're not stashing and
-switching all day. But they pile up across repos, and it gets hard to keep track of which folder is which branch,
-what still has uncommitted work, which repos a ticket touches, and whether it has a pull request yet.
+- **Tickets and PRs on every row.** Tag a worktree with its ticket and pull request; each ticket gets its own colour.
+- **Nothing lost.** Uncommitted changes and unpushed commits show on each row, and removing a worktree asks first.
+- **Tidy after merging.** Once a PR's branch is deleted on origin, **Clean up** removes its worktree in one click.
+- **Ready to run.** New worktrees get copies of your local config files, like `appsettings.local.json`.
+- **`ow` on the command line** does the same things, for scripts and AI agents like Claude Code.
 
-Overworked shows every repo in one folder with its worktrees underneath, and keeps the list current as you work:
+## Install
 
-- **Tickets in colour.** Tag a worktree with its ticket, and every repo working on that ticket shows it in the same colour.
-  Open all of a ticket's repos in one VS Code window, or add another repo to it in one step.
-- **Pull requests at a glance.** Tag it with its PR, and a pill links straight to it.
-- **Nothing lost.** Uncommitted work shows as "3 changed" and commits origin doesn't have yet as "2 unpushed", and
-  removing a worktree asks before throwing work away.
-- **Tidy after merging.** Once a PR is merged and its branch deleted on origin, its worktree gets a **Clean up** button
-  (so does a repo whose own folder was left on that branch).
-- **Ready to run.** New worktrees get copies of your local, gitignored files, like `appsettings.local.json`, listed in
-  a `.worktreeinclude` that Overworked keeps outside the repo.
-- **One click** opens any worktree in your editor (VS Code unless you say otherwise), a terminal or your file browser.
-- **A command line, `ow`,** does the same things, for scripts and AI coding agents.
+Download `Overworked.exe` (Windows) or the `.dmg` (Apple silicon Mac) from the
+[latest release](https://github.com/Andrew-AH/Overworked/releases/latest).
 
-## Get started
-
-**Just want the app?** The [latest release](https://github.com/Andrew-AH/Overworked/releases/latest) has `Overworked.exe`
-for Windows and a `.dmg` for Apple silicon Macs (the Mac needs one Open Anyway step, see *Good to know*).
-
-To build it yourself, you need [git](https://git-scm.com/downloads) and the
-[.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
-
-### Windows
+Or build it, with [git](https://git-scm.com/downloads) and the
+[.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0):
 
 ```powershell
-git clone https://github.com/Andrew-AH/Overworked.git   # or unzip a copy
+# Windows: builds publish\win\Overworked.exe
+git clone https://github.com/Andrew-AH/Overworked.git
 cd Overworked
-dotnet run --project src/Overworked.App                  # starts the app
-```
-
-For an `Overworked.exe` you can keep and pin to the taskbar:
-
-```powershell
 dotnet publish src/Overworked.App -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none -o publish/win
-# the app is now publish\win\Overworked.exe
 ```
-
-### macOS
 
 ```bash
-brew install --cask dotnet-sdk                           # if you don't have .NET yet
-git clone https://github.com/Andrew-AH/Overworked.git    # or unzip a copy
+# macOS: builds a .dmg (on an Intel Mac: ./mac/package.sh osx-x64)
+git clone https://github.com/Andrew-AH/Overworked.git
 cd Overworked
-./mac/package.sh                                         # builds the app and a .dmg (Intel Mac: ./mac/package.sh osx-x64)
-open publish/mac/Overworked-*.dmg                        # drag Overworked into Applications
+./mac/package.sh
+open publish/mac/Overworked-*.dmg
 ```
 
-### The `ow` command (Windows and macOS)
+To add the `ow` command, from the same folder:
 
 ```
 dotnet pack src/Overworked.Cli -c Release -o nupkg
-dotnet tool install -g Overworked.Cli --add-source ./nupkg   # adds `ow` to your PATH
+dotnet tool install -g Overworked.Cli --add-source ./nupkg
 ```
 
-### First run
-
-Click **Choose folder** and pick the folder your repos live in (say `C:\code` or `~/code`). Each repo in it appears
-with its worktrees underneath, and the repos you have worktrees in sit at the top. New worktrees go in
-`.worktrees/<repo>/<branch>` inside that folder.
+On first run, click **Choose folder** and pick the folder your repos live in. New worktrees go in
+`.worktrees/<repo>/<branch>` inside it.
 
 ## Using it
 
 | Do this | To |
 |---|---|
 | **Double-click** a row | open it in your editor |
-| **+** on a repo | open any branch as a worktree, or type a new name to branch from origin's default branch (main, develop…) |
-| **Right-click** a worktree | open it in VS Code, a folder or a terminal; copy its branch; tag it; work with its ticket; remove it (closing VS Code on it) |
-| **Right-click** a repo | switch its branch, plus the same actions |
-| **Click** a tag | open the ticket or pull request |
-| **↻** at the top | rescan, and check origin for branches deleted there; it spins while that runs (opening the app does this too, and it runs by itself every minute) |
-| **Clean up** on a worktree | remove it after its branch was deleted on origin, say by a squash merge, closing VS Code on it first |
-| **Clean up** on a repo | switch its own folder back to its default branch after the branch it was on was deleted on origin |
+| **+** on a repo | open a branch as a worktree, or type a new name to create one |
+| **Right-click** a row | copy its branch, tag it, work with its ticket, remove it; on a repo, switch its branch |
+| **Click** a tag | open the ticket or PR; **right-click** it to copy the link |
+| **Clean up** | after a merge, remove the worktree, and its branch if origin had all of it |
+| **↻** | refresh now; it also refreshes by itself every minute |
 
 <table>
   <tr>
@@ -98,23 +72,18 @@ with its worktrees underneath, and the repos you have worktrees in sit at the to
 
 ### Tags
 
-Right-click a row, choose **Tag ticket…** or **Tag pull request…**, and paste the link. A branch can have both.
+Right-click a row, choose **Tag ticket…** or **Tag pull request…**, and paste the link. Ticket links can come from
+Jira or any tracker with keys like `PROJ-123`.
+
+Once one ticket of a project is tagged, a new worktree named after another, like `proj-124-add-refunds`, is tagged
+with it automatically.
 
 <p align="center"><img src="docs/tag.png" width="400" alt="The Tag ticket dialog"></p>
 
-- Ticket links can come from any company's Jira, cloud or self-hosted, or any tracker with keys like `PROJ-123`:
-  the ticket's own page (`…/browse/PROJ-123`) or a board with it open (`…?selectedIssue=PROJ-123`).
-- Each ticket gets its own colour, shared by every row tagged with it.
-- Once one ticket of a project is tagged, a new worktree whose branch starts with that project's key, like
-  `proj-124-add-refunds`, is tagged with its ticket by itself, and **Tag ticket…** suggests the link. A branch like
-  `fix-3-typo` is left alone until a FIX ticket has been tagged by hand, so it can't become a ticket that isn't one.
-- A row with a ticket can **Open PROJ-123 in VS Code** (every repo on that ticket, in one window) or **Add a repo to
-  PROJ-123**, which opens the same branch in the repo you pick and tags it with the same ticket.
-- Deleting a branch drops its tags.
-
 ## Command line
 
-`ow` does what the app does, from a terminal. The app updates as soon as `ow` changes something.
+`ow` does what the app does, and the app updates as soon as it changes something. Add `--json` for output a script
+can read.
 
 ```
 ow app                               open the app
@@ -122,52 +91,55 @@ ow root [folder]                     show or set the folder that holds your repo
 ow list [repo]                       repos and their worktrees
 ow path <repo> [branch]              folder of a repo, or of a branch's worktree
 ow branches <repo> [--fetch]         branches, newest first, and where each is checked out
-ow new <repo> <branch>               open a branch as a worktree (a new name branches from origin's default branch)
+ow new <repo> <branch>               open a branch as a worktree
 ow switch <repo> <branch> [--create] switch a repo's own branch
 ow remove <repo> <branch> [--force]  remove a worktree; refuses if work would be lost unless --force
-ow cleanup [repo] [branch]           check origin, then clean up every branch deleted there (as Clean up does)
+ow cleanup [repo] [branch]           clean up every branch deleted on origin, as Clean up does
 ow pr <repo> <branch> <url>          tag a branch with its pull request
 ow ticket <repo> <branch> <url>      tag a branch with its ticket
 ```
 
-Add `--json` to any command for output a script can read.
+## Claude Code
 
-For Claude Code, [`.claude/skills`](.claude/skills) has three skills built on `ow`. They load in this repo; to use them
-in every repo, copy their folders into `~/.claude/skills`.
+The [`overworked` skill](.claude/skills/overworked/SKILL.md) has Claude Code keep Overworked up to date as it works,
+without changing how you work: it makes worktrees with `ow` and tags branches with their ticket and PR.
 
-- **managing-worktrees** does worktree work through `ow` rather than raw `git worktree`.
-- **/jira** writes and creates a Jira ticket (or takes an existing one), opens a worktree for it in each repo you
-  pick, and tags them with the ticket.
-- **/pr** opens a GitHub pull request with a short Summary and Changes, using the branch's ticket tag, and tags the
-  branch with the PR.
+It's active in this repo. To use it in every repo, copy it into your personal skills:
+
+```powershell
+# Windows
+New-Item -ItemType Directory -Force "$HOME\.claude\skills" | Out-Null
+Copy-Item -Recurse -Force .claude\skills\overworked "$HOME\.claude\skills\"
+```
+
+```bash
+# macOS
+mkdir -p ~/.claude/skills && cp -R .claude/skills/overworked ~/.claude/skills/
+```
+
+So Claude uses it on every relevant task, also add this to `~/.claude/CLAUDE.md`, with your repos folder:
+
+```markdown
+When a task touches tickets, branches, worktrees or PRs in `C:\code`, do it however it's asked, and also keep
+Overworked (`ow`) in step on the side: load the `overworked` skill.
+```
+
+Both apply from your next Claude Code session. Copy the skill again to update it.
 
 ## Good to know
 
-- Git is the source of truth. Overworked only remembers your repos folder (`%APPDATA%\Overworked\config.json` on
-  Windows, `~/.config/Overworked/config.json` on macOS), and tags live in each repo's own git config.
-- To open rows in another editor, add `"Editor"` to that config.json: on Windows the command (`"cursor"`, `"zed"`), on
-  macOS the app's name (`"Cursor"`, `"Zed"`, `"Rider"`). The menus then say Open in that. Clean up still closes VS Code
-  windows only.
-- Removing a worktree keeps its branch. If an editor or a terminal still has the folder open, the empty folder goes
-  on a later refresh.
-- **Clean up** also deletes the worktree's local branch, but only if origin had every commit on it. If there's
-  anything newer, or it can't tell (the branch was pruned by some other fetch first), the branch stays. On a repo's
-  own folder it refuses while there are uncommitted changes.
-- On Windows, **Clean up** and removing a worktree first close any VS Code window on it, as its close button would,
-  so the folder can go too. They find the window by its title, which by default names the folder; when another repo
-  has a folder of the same name, the title needs the repo too, as with
-  `"window.title": "${activeRepositoryName}${separator}${activeRepositoryBranchName}"`. If VS Code stays open, say
-  to ask about unsaved changes, they stop and leave everything as it was.
-- A repo's `.worktreeinclude` lives with its worktrees, in `.worktrees/<repo>/.worktreeinclude` under your repos
-  folder, never in the repo itself. It uses `.gitignore` syntax, and a new worktree gets a copy of each file in the
-  repo's own folder that it matches and git ignores, for example:
-
-  ```
-  **/appsettings.local.json
-  .vscode/
-  ```
-- The Mac build is only ad-hoc signed (no Apple Developer ID), so the first time you open a copy from Releases, or one
-  built on another Mac, allow it under System Settings → Privacy & Security → Open Anyway.
+- Overworked keeps no data of its own: tags live in each repo's git config. Its settings file
+  (`%APPDATA%\Overworked\config.json`, or `~/.config/Overworked/config.json` on macOS) holds your repos folder and,
+  optionally, `"Editor"` to open rows in something other than VS Code (`"cursor"` on Windows, `"Cursor"` on macOS).
+- **Clean up** never loses work: it refuses while there are uncommitted changes, and keeps the branch unless origin had
+  all of it. On a repo's own folder, it switches back to the default branch instead.
+- On Windows, **Clean up** and removing a worktree close its VS Code window first. They find it by title, so if two
+  repos have a folder of the same name, set VS Code's `"window.title"` to
+  `"${activeRepositoryName}${separator}${activeRepositoryBranchName}"`.
+- To copy local files into new worktrees, list them in `.worktrees/<repo>/.worktreeinclude` under your repos folder,
+  in `.gitignore` syntax (e.g. `**/appsettings.local.json`). Only files git ignores are copied.
+- The Mac build isn't signed with an Apple Developer ID, so the first time you open it, allow it under
+  System Settings → Privacy & Security → Open Anyway.
 
 ## Development
 
@@ -175,18 +147,14 @@ in every repo, copy their folders into `~/.claude/skills`.
 dotnet test
 ```
 
-To update an installed `ow`, bump `<Version>` in `Directory.Build.props`, pack again, and run
-`dotnet tool update -g Overworked.Cli --add-source ./nupkg`.
-
-To cut a release, bump `<Version>` in `Directory.Build.props` and push a tag like `v0.7.0`: the release workflow builds
-`Overworked.exe` and the `.dmg` and attaches them to a GitHub release. `dotnet test` runs on every pull request, on
-Windows and macOS.
+To update your installed `ow`, bump `<Version>` in `Directory.Build.props`, pack again, and run
+`dotnet tool update -g Overworked.Cli --add-source ./nupkg`. To release, bump the version and push a tag like
+`v0.7.0`: a workflow builds both apps and attaches them to a GitHub release.
 
 ```
-src/Overworked.Core            git operations, scanning, tags, config (no UI)
-src/Overworked.App             the Avalonia app: ViewModels/ hold state and changes, Views/ the window and menus
-src/Overworked.Cli             the `ow` command; JsonOutput.cs is its --json contract
-mac/package.sh                 builds Overworked.app and its .dmg (run on a Mac)
-tests/                         real git against throwaway repos, plus unit tests
-docs/                          README screenshots
+src/Overworked.Core    git operations, scanning, tags, config (no UI)
+src/Overworked.App     the Avalonia app
+src/Overworked.Cli     the `ow` command; JsonOutput.cs is its --json contract
+mac/package.sh         builds Overworked.app and its .dmg
+tests/                 real git against throwaway repos, plus unit tests
 ```
