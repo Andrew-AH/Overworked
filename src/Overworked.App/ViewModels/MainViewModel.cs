@@ -110,24 +110,44 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             return $"Opened {branch} as a worktree";
         });
 
-    /// <summary>The work removing this worktree would destroy. None if its folder is already gone.</summary>
-    public Task<WorkAtRisk?> FindWorkAtRiskAsync(WorktreeRow row) =>
-        row.IsMissing ? Task.FromResult<WorkAtRisk?>(null) : Task.Run(() => Worktrees.FindWorkAtRisk(row.Path));
-
-    /// <param name="force">Remove even though work would be lost; only after the user has confirmed that.</param>
-    public Task RemoveWorktreeAsync(WorktreeRow row, bool force)
+    /// <summary>
+    /// Removes the worktree, once sure no work is lost unawares. The proper check (git in the worktree and each
+    /// submodule, a few seconds on some machines) runs here, off the UI thread with the row saying "Checking…", rather
+    /// than before the question, so that comes up at once from what the last scan showed.
+    /// </summary>
+    /// <param name="agreeToLose">
+    /// Asked, with what the check found, whether to go on and lose it. It can say yes without asking when the user
+    /// already agreed to that from the scan's count (<see cref="AlreadyAgreed"/>).
+    /// </param>
+    public async Task RemoveWorktreeAsync(WorktreeRow row, Func<WorkAtRisk, Task<bool>> agreeToLose)
     {
-        var folderNameUnique = FolderNameUnique(row.Worktree);
-        return ChangeRepoAsync(row.Repo, $"Removing {row.Title}…", (row.Path, "Removing…"), workspace =>
+        if (!row.IsMissing)
         {
-            // Not when there's work at risk the user hasn't agreed to lose, as removing refuses then.
-            if (!row.IsMissing && (force || Worktrees.FindWorkAtRisk(row.Path) is null))
-                CloseCodeOn(row.Repo, row.Worktree, folderNameUnique, then: "remove it");
-            return workspace.RemoveWorktree(row.Repo, row.Worktree, force)
+            MarkBusy(row.Path, "Checking…");
+            WorkAtRisk? atRisk;
+            try { atRisk = await Task.Run(() => Worktrees.FindWorkAtRisk(row.Path)); }
+            catch (Exception e) { Status.ShowError(e.Message); return; }
+            finally { MarkBusy(row.Path, null); }
+            if (atRisk is not null && !await agreeToLose(atRisk)) return;
+        }
+        var folderNameUnique = FolderNameUnique(row.Worktree);
+        await ChangeRepoAsync(row.Repo, $"Removing {row.Title}…", (row.Path, "Removing…"), workspace =>
+        {
+            if (!row.IsMissing) CloseCodeOn(row.Repo, row.Worktree, folderNameUnique, then: "remove it");
+            // Checked just above, or the user agreed to lose it: git needn't check again.
+            return workspace.RemoveWorktree(row.Repo, row.Worktree, force: true)
                 ? $"Removed the {row.Title} worktree"
                 : $"Removed the {row.Title} worktree. Its empty folder goes once an editor or a terminal stops using it.";
         });
     }
+
+    /// <summary>
+    /// Whether the user, shown the scan's count of uncommitted changes before agreeing to remove, has thereby agreed to
+    /// lose what the proper check then found: yes for uncommitted changes, however many by now; no for anything inside
+    /// a submodule, which no scan counts; and no when the scan showed none.
+    /// </summary>
+    internal static bool AlreadyAgreed(int shownChanges, WorkAtRisk atRisk) =>
+        shownChanges > 0 && atRisk.SubmodulesWithWork.Count == 0;
 
     /// <summary>Changes the main folder's branch. Worktrees don't switch: they stay on the branch they were made for.</summary>
     public Task SwitchBranchAsync(RepoRow row, BranchChoice choice)
