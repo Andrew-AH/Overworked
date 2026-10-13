@@ -95,13 +95,18 @@ public partial class MainWindow : Window
     async void RemoveWorktree_Click(object? sender, RoutedEventArgs e)
     {
         if (RowOf<WorktreeRow>(sender) is not { } row) return;
-        var atRisk = await _viewModel.FindWorkAtRiskAsync(row);
         var kept = row.HasBranch ? " The branch is kept." : "";
-        var confirmed = atRisk is not null
-            ? await Dialog.Confirm(this, "Remove worktree", row.Title,
-                $"This worktree has {atRisk.Describe()}. Removing the worktree deletes that work.{kept}", "Delete work and remove", danger: true)
-            : await Dialog.Confirm(this, "Remove worktree", row.Title, $"Deletes its folder.{kept}", "Remove", danger: true);
-        if (confirmed) await _viewModel.RemoveWorktreeAsync(row, force: atRisk is not null);
+        Task<bool> Confirm(string message, string action) => Dialog.Confirm(this, "Remove worktree", row.Title, message, action, danger: true);
+        // Asks at once, from what the last scan showed. The proper check takes a moment, so it runs as part of removing,
+        // and asks again only about work this box didn't mention: changes since the scan, or inside a submodule.
+        var shown = row.Worktree?.ChangedFiles ?? 0;
+        var confirmed = shown > 0
+            ? await Confirm($"This worktree has {Plural.Of(shown, "uncommitted change")}. Removing the worktree deletes that work.{kept}", "Delete work and remove")
+            : await Confirm($"Deletes its folder.{kept}", "Remove");
+        if (!confirmed) return;
+        await _viewModel.RemoveWorktreeAsync(row, agreeToLose: atRisk => MainViewModel.AlreadyAgreed(shown, atRisk)
+            ? Task.FromResult(true)
+            : Confirm($"This worktree has {atRisk.Describe()}. Removing the worktree deletes that work.{kept}", "Delete work and remove"));
     }
 
     void AddRepoToTicket_Click(object? sender, RoutedEventArgs e)
