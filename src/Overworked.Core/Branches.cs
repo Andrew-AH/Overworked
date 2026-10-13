@@ -16,12 +16,11 @@ public static class Branches
     /// it. A repo with no such record (git init, then remote add) is taken to use main, or master if it has no main;
     /// `git remote set-head origin -a` records the real one.
     /// </summary>
-    public static string DefaultBranch(string repoPath)
-    {
-        try { return Git.Run(repoPath, "symbolic-ref", "refs/remotes/origin/HEAD").Trim()[OriginPrefix.Length..]; }
-        catch (OverworkedException) { }
-        return Git.Succeeds(repoPath, "show-ref", "--verify", "--quiet", OriginPrefix + "main") ? "main" : "master";
-    }
+    public static string DefaultBranch(string repoPath) => DefaultBranch(repoPath, ReadRefs(repoPath).OriginHead);
+
+    /// <summary><see cref="DefaultBranch(string)"/>, given where origin's HEAD points (<see cref="Refs.OriginHead"/>), to save reading it again.</summary>
+    internal static string DefaultBranch(string repoPath, string? originHead) =>
+        originHead ?? (Git.Succeeds(repoPath, "show-ref", "--verify", "--quiet", OriginPrefix + "main") ? "main" : "master");
 
     // git config: the last commit origin had of a branch, noted as its copy there was deleted.
     const string LastPushedSetting = "overworked-last-pushed";
@@ -65,8 +64,12 @@ public static class Branches
             .ToList();
 
     /// <summary>Each local branch's standing against its upstream, by name.</summary>
-    internal static IReadOnlyDictionary<string, Tracking> Track(string repoPath) =>
-        ParseTracking(Git.Run(repoPath, "for-each-ref", "--format=%(refname:short)%09%(upstream)%09%(upstream:track)", "refs/heads"));
+    internal static IReadOnlyDictionary<string, Tracking> Track(string repoPath) => ReadRefs(repoPath).Tracking;
+
+    /// <summary>Every local branch's standing against its upstream, and where origin's HEAD points, in one read.</summary>
+    internal static Refs ReadRefs(string repoPath) =>
+        ParseRefs(Git.Run(repoPath, "for-each-ref", "--format=%(refname)%09%(upstream)%09%(upstream:track)%09%(symref)",
+            "refs/heads", "refs/remotes/origin/HEAD"));
 
     /// <summary>
     /// Commits on <paramref name="branch"/> that origin doesn't have: those ahead of its upstream, or for a branch never
@@ -136,20 +139,28 @@ public static class Branches
     }
 
     /// <summary>
-    /// `for-each-ref` lines of a branch, its upstream and how it stands against it, tab-separated: "[gone]" once a fetch
-    /// has pruned the upstream, "[ahead 2]", "[ahead 2, behind 3]", or nothing when level or there's no upstream.
+    /// `for-each-ref` lines, tab-separated: the ref, its upstream, how it stands against it ("[gone]" once a fetch has
+    /// pruned the upstream, "[ahead 2]", "[ahead 2, behind 3]", or nothing when level or there's no upstream) and what it
+    /// links to, which only refs/remotes/origin/HEAD does: origin's default branch.
     /// </summary>
-    internal static Dictionary<string, Tracking> ParseTracking(string forEachRef) =>
-        Git.Lines(forEachRef)
-            .Select(line => line.Split('\t'))
-            .ToDictionary(fields => fields[0], fields =>
-            {
-                var track = fields.Length > 2 ? fields[2] : "";
-                return new Tracking(
-                    Upstream: fields.Length > 1 && fields[1].Length > 0 ? fields[1] : null,
+    internal static Refs ParseRefs(string forEachRef)
+    {
+        var tracking = new Dictionary<string, Tracking>();
+        string? originHead = null;
+        foreach (var fields in Git.Lines(forEachRef).Select(line => line.Split('\t')))
+        {
+            string At(int i) => fields.Length > i ? fields[i] : "";
+            var (name, upstream, track, symref) = (fields[0], At(1), At(2), At(3));
+            if (name == OriginPrefix + "HEAD")
+                originHead = symref.StartsWith(OriginPrefix) ? symref[OriginPrefix.Length..] : null;
+            else if (name.StartsWith(LocalPrefix))
+                tracking[name[LocalPrefix.Length..]] = new Tracking(
+                    Upstream: upstream.Length > 0 ? upstream : null,
                     Gone: track == "[gone]",
                     Ahead: Regex.Match(track, @"ahead (\d+)") is { Success: true } ahead ? int.Parse(ahead.Groups[1].Value) : 0);
-            });
+        }
+        return new Refs(tracking, originHead);
+    }
 
     /// <summary>The commit each of origin's branches is on, by ref.</summary>
     static Dictionary<string, string> OriginTips(string repoPath) =>
@@ -166,6 +177,11 @@ public static class Branches
             LastCommit: DateTimeOffset.FromUnixTimeSeconds(long.TryParse(fields[2], out var unix) ? unix : 0));
     }
 }
+
+/// <summary>What one read of a repo's refs tells (<see cref="Branches.ReadRefs"/>).</summary>
+/// <param name="Tracking">Each local branch's standing against its upstream, by name.</param>
+/// <param name="OriginHead">Origin's default branch, where its HEAD points; null when the repo has no record of it.</param>
+internal readonly record struct Refs(IReadOnlyDictionary<string, Tracking> Tracking, string? OriginHead);
 
 /// <summary>How a local branch stands against its upstream (<see cref="Branches.Track"/>).</summary>
 /// <param name="Upstream">The ref it tracks, e.g. refs/remotes/origin/PROJ-1; null for a branch never pushed with -u.</param>

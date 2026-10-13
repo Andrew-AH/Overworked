@@ -180,7 +180,7 @@ public sealed class Workspace(string root)
         try
         {
             var tags = Tags.ByBranch(path);
-            var tracking = Branches.Track(path);
+            var (tracking, originHead) = Branches.ReadRefs(path);
             var worktrees = Worktrees.List(path)
                 .AsParallel().AsOrdered()
                 .Select(w =>
@@ -197,7 +197,7 @@ public sealed class Workspace(string root)
                     };
                 })
                 .ToList();
-            return new Repo(name, path, worktrees, DefaultBranch: Branches.DefaultBranch(path));
+            return new Repo(name, path, worktrees, DefaultBranch: Branches.DefaultBranch(path, originHead));
         }
         catch (OverworkedException e)
         {

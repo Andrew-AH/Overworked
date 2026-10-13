@@ -43,22 +43,26 @@ public sealed class ParsingTests
     }
 
     [Fact]
-    public void Reads_how_each_branch_stands_against_origin()
+    public void Reads_how_each_branch_stands_against_origin_and_where_origins_head_points()
     {
-        var tracking = Branches.ParseTracking(
-            "main\trefs/remotes/origin/main\t\n" +
-            "feature-a\trefs/remotes/origin/feature-a\t[gone]\n" +
-            "feature-b\trefs/remotes/origin/feature-b\t[ahead 1]\n" +
-            "feature/c\trefs/remotes/origin/feature/c\t[ahead 12, behind 3]\n" +
-            "feature-d\trefs/remotes/origin/feature-d\t[behind 2]\n" +
-            "local-only\t\t\n");
+        var (tracking, originHead) = Branches.ParseRefs(
+            "refs/heads/main\trefs/remotes/origin/main\t\t\n" +
+            "refs/heads/feature-a\trefs/remotes/origin/feature-a\t[gone]\t\n" +
+            "refs/heads/feature-b\trefs/remotes/origin/feature-b\t[ahead 1]\t\n" +
+            "refs/heads/feature/c\trefs/remotes/origin/feature/c\t[ahead 12, behind 3]\t\n" +
+            "refs/heads/feature-d\trefs/remotes/origin/feature-d\t[behind 2]\t\n" +
+            "refs/heads/local-only\t\t\t\n" +
+            "refs/remotes/origin/HEAD\t\t\trefs/remotes/origin/develop\n");
 
+        Assert.Equal("develop", originHead);
+        Assert.Equal(6, tracking.Count); // origin's HEAD is not a branch
         Assert.Equal(new Tracking("refs/remotes/origin/main", Gone: false, Ahead: 0), tracking["main"]);
         Assert.Equal(new Tracking("refs/remotes/origin/feature-a", Gone: true, Ahead: 0), tracking["feature-a"]);
         Assert.Equal(1, tracking["feature-b"].Ahead);
         Assert.Equal(12, tracking["feature/c"].Ahead);
         Assert.Equal(0, tracking["feature-d"].Ahead);
         Assert.Equal(new Tracking(null, Gone: false, Ahead: 0), tracking["local-only"]);
+        Assert.Null(Branches.ParseRefs("refs/heads/main\trefs/remotes/origin/main\t\t\n").OriginHead); // unrecorded
     }
 
     [Fact]
@@ -90,17 +94,56 @@ public sealed class ParsingTests
     }
 
     [Fact]
-    public void Reads_pull_request_and_ticket_tags_from_git_config()
+    public void Reads_pull_request_and_ticket_tags_from_the_repos_config_file()
     {
-        var tags = Tags.Parse(
-            "branch.feature/PROJ-1.overworked-pr https://github.com/example/app/pull/1\n" +
-            "branch.feature/PROJ-1.overworked-ticket https://example.atlassian.net/browse/PROJ-1\n" +
-            "branch.v1.2.overworked-pr https://github.com/example/app/pull/2\n" +
-            "branch.proj-3.overworked-ticket https://example.atlassian.net/browse/PROJ-3\n");
+        var tags = Tags.Parse("""
+            [core]
+            	repositoryformatversion = 0
+            [remote "origin"]
+            	url = https://github.com/example/app.git
+            [branch "main"]
+            	remote = origin
+            	merge = refs/heads/main
+            [branch "feature/PROJ-1"]
+            	vscode-merge-base = origin/main
+            	overworked-pr = https://github.com/example/app/pull/1
+            	overworked-ticket = "https://example.atlassian.net/browse/PROJ-1?focusedCommentId=7#comment-7"
+            [branch "v1.2"]
+            	Overworked-PR = https://github.com/example/app/pull/2  ; git lowercases keys, but case is no matter
+            # a comment
+            [branch "proj-3"]
+                overworked-ticket=https://example.atlassian.net/browse/PROJ-3
+            [Branch "proj-4"]
+            	overworked-ticket = "https://example.com/a\"b"
 
-        Assert.Equal(new BranchTags("https://github.com/example/app/pull/1", "https://example.atlassian.net/browse/PROJ-1"),
+            """);
+
+        Assert.Equal(new BranchTags("https://github.com/example/app/pull/1", "https://example.atlassian.net/browse/PROJ-1?focusedCommentId=7#comment-7"),
             tags["feature/PROJ-1"]);
         Assert.Equal(new BranchTags("https://github.com/example/app/pull/2", null), tags["v1.2"]);
         Assert.Equal(new BranchTags(null, "https://example.atlassian.net/browse/PROJ-3"), tags["proj-3"]);
+        Assert.Equal(new BranchTags(null, "https://example.com/a\"b"), tags["proj-4"]);
+        Assert.False(tags.ContainsKey("main"));
+    }
+
+    [Fact]
+    public void Runs_the_real_git_rather_than_the_launcher_windows_puts_on_the_path()
+    {
+        var git = Directory.CreateTempSubdirectory("overworked-git-").FullName;
+        try
+        {
+            var launcher = Path.Combine(git, "cmd", "git.exe");
+            var real = Path.Combine(git, "mingw64", "bin", "git.exe");
+            Directory.CreateDirectory(Path.GetDirectoryName(launcher)!);
+            File.WriteAllText(launcher, "");
+            Assert.Equal(launcher, Git.RealExe(launcher)); // nothing better beside it
+
+            Directory.CreateDirectory(Path.GetDirectoryName(real)!);
+            File.WriteAllText(real, "");
+            Assert.Equal(real, Git.RealExe(launcher));
+            Assert.Equal(real, Git.RealExe(real));
+            Assert.Equal("/usr/bin/git", Git.RealExe("/usr/bin/git"));
+        }
+        finally { Directory.Delete(git, recursive: true); }
     }
 }
