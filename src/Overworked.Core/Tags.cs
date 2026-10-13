@@ -69,34 +69,52 @@ public static class Tags
         return null;
     }
 
-    /// <summary>Each tagged branch's links, by branch name.</summary>
+    /// <summary>
+    /// Each tagged branch's links, by branch name, read straight from the repo's config file: a git process less per
+    /// repo on every scan. Writing stays with git (<see cref="Set"/>), so the file is always git's own.
+    /// </summary>
     internal static IReadOnlyDictionary<string, BranchTags> ByBranch(string repoPath)
     {
-        string config;
-        try { config = Git.Run(repoPath, "config", "--local", "--get-regexp", @"^branch\..*\.overworked-(pr|ticket)$"); }
-        catch (OverworkedException) { return new Dictionary<string, BranchTags>(); } // git exits 1 when no branch has one
-        return Parse(config);
+        var file = Path.Combine(repoPath, ".git", "config");
+        return File.Exists(file) ? Parse(File.ReadAllText(file)) : new Dictionary<string, BranchTags>();
     }
 
-    /// <summary>`git config --get-regexp` lines: "branch.&lt;name&gt;.overworked-pr &lt;url&gt;". Branch names can't contain spaces.</summary>
+    /// <summary>
+    /// The tags in a git config file: the overworked-pr and overworked-ticket keys of [branch "name"] sections. git
+    /// writes a value bare, or in quotes when it holds # or ; (a link with a fragment), escaping " and \ inside; a
+    /// bare # or ; starts a comment. Keys and section names are case-insensitive, branch names are not.
+    /// </summary>
     internal static Dictionary<string, BranchTags> Parse(string config)
     {
         var tags = new Dictionary<string, BranchTags>();
-        foreach (var line in Git.Lines(config))
+        string? branch = null;
+        foreach (var raw in Git.Lines(config))
         {
-            var fields = line.Split(' ', 2);
-            var (key, url) = (fields[0], fields.Length > 1 ? fields[1].Trim() : "");
-            foreach (var kind in Enum.GetValues<TagKind>())
+            var line = raw.Trim();
+            if (line.StartsWith('['))
             {
-                var suffix = "." + Setting(kind);
-                if (!key.EndsWith(suffix)) continue;
-                var branch = key["branch.".Length..^suffix.Length];
-                var current = tags.GetValueOrDefault(branch);
-                tags[branch] = kind == TagKind.PullRequest ? current with { PullRequestUrl = url } : current with { TicketUrl = url };
+                var section = Regex.Match(line, "^\\[branch \"((?:[^\"\\\\]|\\\\.)*)\"\\]", RegexOptions.IgnoreCase);
+                branch = section.Success ? Unescape(section.Groups[1].Value) : null;
+                continue;
             }
+            if (branch is null || line.Split('=', 2) is not [var key, var value]) continue;
+            TagKind? kind = key.Trim().ToLowerInvariant() switch { "overworked-pr" => TagKind.PullRequest, "overworked-ticket" => TagKind.Ticket, _ => null };
+            if (kind is null) continue;
+            var url = Unquote(value.Trim());
+            var current = tags.GetValueOrDefault(branch);
+            tags[branch] = kind == TagKind.PullRequest ? current with { PullRequestUrl = url } : current with { TicketUrl = url };
         }
         return tags;
     }
+
+    static string Unquote(string value)
+    {
+        if (value.Length >= 2 && value[0] == '"' && value[^1] == '"') return Unescape(value[1..^1]);
+        var comment = value.IndexOfAny([';', '#']);
+        return comment < 0 ? value : value[..comment].TrimEnd();
+    }
+
+    static string Unescape(string text) => Regex.Replace(text, @"\\(.)", "$1");
 
     static string Setting(TagKind kind) => kind == TagKind.PullRequest ? "overworked-pr" : "overworked-ticket";
 

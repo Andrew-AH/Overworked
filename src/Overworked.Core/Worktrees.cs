@@ -7,17 +7,21 @@ public static class Worktrees
     public static WorkAtRisk? FindWorkAtRisk(string worktreePath)
     {
         var changes = CountChangedFiles(worktreePath);
-        var unpushed = Submodules.List(worktreePath).Where(s => s.UnpushedCommits > 0).ToList();
-        return changes == 0 && unpushed.Count == 0 ? null : new WorkAtRisk(changes, unpushed);
+        var submodules = Submodules.List(worktreePath).Where(s => s.ChangedFiles > 0 || s.UnpushedCommits > 0).ToList();
+        return changes == 0 && submodules.Count == 0 ? null : new WorkAtRisk(changes, submodules);
     }
 
     /// <summary>A repo's worktrees, main first, as git lists them: no change counts or pull requests yet.</summary>
     internal static IReadOnlyList<Worktree> List(string repoPath) =>
         Parse(Git.Run(repoPath, "worktree", "list", "--porcelain"));
 
-    /// <summary>Uncommitted changes: each line of `git status --porcelain` is one changed path.</summary>
+    /// <summary>
+    /// Uncommitted changes: each line of `git status --porcelain` is one changed path. A submodule counts when its commit
+    /// moved, not for changes inside it: finding those takes a second git process per submodule, which the removal guard
+    /// spends (<see cref="FindWorkAtRisk"/>) and a scan needn't.
+    /// </summary>
     internal static int CountChangedFiles(string worktreePath) =>
-        Git.Lines(Git.Run(worktreePath, "status", "--porcelain")).Length;
+        Git.Lines(Git.Run(worktreePath, "status", "--porcelain", "--ignore-submodules=dirty")).Length;
 
     /// <summary>`git worktree list --porcelain`: a block per worktree, separated by blank lines, main first.</summary>
     internal static IReadOnlyList<Worktree> Parse(string porcelain)

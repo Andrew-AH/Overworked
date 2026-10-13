@@ -80,8 +80,12 @@ public sealed class WorkspaceTests : IDisposable
 
             Git.Run(infra, "switch", "-c", "PROJ-3");
             File.WriteAllText(Path.Combine(infra, "ddl.sql"), "x");
+            // A change inside the submodule isn't the parent's, so a scan doesn't count it; removing would still lose it.
+            Assert.Equal(0, Worktrees.CountChangedFiles(worktree.Path));
+            Assert.Equal("1 uncommitted change in infra", Worktrees.FindWorkAtRisk(worktree.Path)!.Describe());
             Git.Run(infra, "add", ".");
             Commit(infra, "ddl");
+            Assert.Equal(1, Worktrees.CountChangedFiles(worktree.Path)); // the submodule's commit moved: that, the parent sees
 
             var submodule = Assert.Single(Submodules.List(worktree.Path));
             Assert.Equal(("infra", "PROJ-3", true, 0, 1),
