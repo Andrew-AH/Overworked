@@ -47,6 +47,13 @@ public abstract class RowViewModel(Repo repo, RowColours colours, IReadOnlyDicti
     public bool HasTicket => TicketKey is not null;
     public IBrush? TicketColour => colours.TicketColourFor(TicketKey);
     public string OpenInEditorText => $"Open in {Platform.EditorName}";
+    public string OpenInFileManagerText
+    {
+        get
+        {
+            return $"Open in {Platform.FileManagerName}";
+        }
+    }
     public string OpenTicketText => $"Open all {TicketKey} repos in one {Platform.EditorName} window";
     public string AddRepoToTicketText => $"Open {TicketKey} in another repo…";
 

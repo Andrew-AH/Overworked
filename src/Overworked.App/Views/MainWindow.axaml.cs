@@ -160,6 +160,11 @@ public partial class MainWindow : Window
 
     void OpenInCode_Click(object? sender, RoutedEventArgs e) => Open(Platform.OpenInCode, RowOf<RowViewModel>(sender));
 
+    void OpenInFileManager_Click(object? sender, RoutedEventArgs e)
+    {
+        Open(open: Platform.OpenInFileManager, row: RowOf<RowViewModel>(sender));
+    }
+
     void CopyBranch_Click(object? sender, RoutedEventArgs e)
     {
         if (RowOf<RowViewModel>(sender) is { } row) CopyBranch(row);
